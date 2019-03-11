@@ -23,7 +23,9 @@
 # Updated: 02/22/2019 [1.1.2] - added functionality to support the body of data in the first argument of a callback
 # Updated: 03/10/2019 [1.1.2] - updated for standalone library, Guavacado rebrand
 
-WebServerNameAndVer = "Guavacado/1.1.2"
+import importlib # using importlib for some imports to stop warnings from IDE about missing modules
+guavacado_version = importlib.import_module("guavacado.version_number").guavacado_version
+WebServerNameAndVer = "Guavacado/"+guavacado_version
 
 
 from datetime import datetime
@@ -36,7 +38,6 @@ import fnmatch
 import sys # only needed for python version check
 if sys.version_info[0] < 3:
 	# Python 2-specific imports and functions
-	import importlib # using importlib for imports to stop warnings from IDE about missing modules
 	http_server = importlib.import_module("BaseHTTPServer")
 	urllib = importlib.import_module("urllib")
 	url_decode = urllib.unquote
