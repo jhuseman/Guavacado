@@ -12,6 +12,9 @@ import json
 
 import random
 
+import threading
+import time
+
 class TestInterface(guavacado.WebInterface):
 	def __init__(self,host):
 		self.host = host
@@ -31,5 +34,10 @@ class TestInterface(guavacado.WebInterface):
 if __name__ == '__main__':
 	host = guavacado.WebHost(12345)
 	TestInterface(host)
-	host.start_service()
+	threading.Thread(target=host.start_service).start()
+	try:
+		while True:
+			time.sleep(100)
+	except KeyboardInterrupt:
+		host.stop_service()
 	
