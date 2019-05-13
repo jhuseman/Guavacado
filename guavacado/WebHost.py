@@ -27,6 +27,8 @@ import importlib # using importlib for some imports to stop warnings from IDE ab
 guavacado_version = importlib.import_module("guavacado.version_number").guavacado_version
 WebServerNameAndVer = "Guavacado/"+guavacado_version
 
+from guavacado.misc import generate_redirect_page
+from guavacado.WebDocs import WebDocs
 
 from datetime import datetime
 import mimetypes
@@ -57,26 +59,6 @@ else:
 		return dict([tuple(l.split(': ')[:2]) for l in str(headers).split('\n') if ': ' in l])
 	def get_header(headers, header_name):
 		return parse_headers(headers).get('Content-Length',None)
-
-def generate_redirect_page(dest):
-	return """
-		<!DOCTYPE html>
-		<html>
-			<head>
-				<META http-equiv="refresh" content="0;URL={dest}">
-				<title>Guavacado Web Redirect</title>
-			</head>
-			<body>
-				There is no information at this page.
-				If you are not redirected to {dest} immediately, you can click <a href="{dest}">here</a>.
-				<script>
-					window.location = "{dest}";
-					window.location.replace("{dest}");
-					window.location.href = "{dest}";
-				</script>
-			</body>
-		</html>
-	""".format(dest=dest)
 
 class WebHost(object):
 	def __init__(self,port=80,host='0.0.0.0',log_function=None,staticdir="static",staticindex="index.html",include_fp=['{staticdir}/*'],exclude_fp=[], error_404_page_func=None):
@@ -338,110 +320,110 @@ class WebDispatcher(object):
 		"</body></html>").format(url=url, address=self.get_address_string())
 		
 
-class WebInterface(object):
-	"""
-	Allows for easily defining web interfaces for the server.
+# class WebInterface(object):
+# 	"""
+# 	Allows for easily defining web interfaces for the server.
 
-	Expects the variable "self.host" to be set to a WebHost
-	object before calling "connect()".
+# 	Expects the variable "self.host" to be set to a WebHost
+# 	object before calling "connect()".
 
-	See implementation of __init__ class for an example initialization.
-	"""
+# 	See implementation of __init__ class for an example initialization.
+# 	"""
 
-	def __init__(self, host=None, host_kwargs={'port':80}):
-		# starts a WebHost on port 80 that
-		if host is None:
-			self.host = WebHost(**host_kwargs)
-		else:
-			self.host = host
+# 	def __init__(self, host=None, host_kwargs={'port':80}):
+# 		# starts a WebHost on port 80 that
+# 		if host is None:
+# 			self.host = WebHost(**host_kwargs)
+# 		else:
+# 			self.host = host
 
-		# # add lines like the following:
-		# self.connect('/test/:id','GET_ID','GET')
-		# self.connect('/test/:id',self.GET_ID,'GET')
-		# # to call member function GET_ID() with the argument after "/test/" when a GET request
-		# # is received for "/test/<any text here>"
+# 		# # add lines like the following:
+# 		# self.connect('/test/:id','GET_ID','GET')
+# 		# self.connect('/test/:id',self.GET_ID,'GET')
+# 		# # to call member function GET_ID() with the argument after "/test/" when a GET request
+# 		# # is received for "/test/<any text here>"
 	
-	def connect(self, resource, action, method, body_included=False):
-		if isinstance(action, str):
-			callback = getattr(self, action)
-		else:
-			callback = action
-		self.connect_callback(resource, callback, method, body_included=body_included)
+# 	def connect(self, resource, action, method, body_included=False):
+# 		if isinstance(action, str):
+# 			callback = getattr(self, action)
+# 		else:
+# 			callback = action
+# 		self.connect_callback(resource, callback, method, body_included=body_included)
 	
-	def connect_callback(self,resource,callback,method, body_included=False):
-		"""
-		connects a specified callback (function) in this object
-		to the specified resource (URL)
-		and http method (GET/PUT/POST/DELETE)
-		"""
-		self.dispatcher = self.host.get_dispatcher()
-		if body_included:
-			disp_callback = callback
-		else:
-			def disp_callback(body, *args):
-				return callback(*args)
-		self.dispatcher.connect(resource, disp_callback, method)
-		# log this connection on the host
-		self.host.log_connection(resource,callback,method)
-	def start_service(self):
-		self.host.start_service()
-	def stop_service(self):
-		self.host.stop_service()
+# 	def connect_callback(self,resource,callback,method, body_included=False):
+# 		"""
+# 		connects a specified callback (function) in this object
+# 		to the specified resource (URL)
+# 		and http method (GET/PUT/POST/DELETE)
+# 		"""
+# 		self.dispatcher = self.host.get_dispatcher()
+# 		if body_included:
+# 			disp_callback = callback
+# 		else:
+# 			def disp_callback(body, *args):
+# 				return callback(*args)
+# 		self.dispatcher.connect(resource, disp_callback, method)
+# 		# log this connection on the host
+# 		self.host.log_connection(resource,callback,method)
+# 	def start_service(self):
+# 		self.host.start_service()
+# 	def stop_service(self):
+# 		self.host.stop_service()
 
-class WebDocs(WebInterface):
-	def __init__(self,host):
-		self.host = host
-		# self.connect('/','ROOT_REDIRECT','GET')
-		self.connect('/docs/','GET_DOCS','GET')
-		self.connect('/docs/json/','GET_DOCS_JSON','GET')
+# class WebDocs(WebInterface):
+# 	def __init__(self,host):
+# 		self.host = host
+# 		# self.connect('/','ROOT_REDIRECT','GET')
+# 		self.connect('/docs/','GET_DOCS','GET')
+# 		self.connect('/docs/json/','GET_DOCS_JSON','GET')
 
-	def ROOT_REDIRECT(self):
-		"""redirects to /static/ directory"""
-		return generate_redirect_page("/static/")
+# 	def ROOT_REDIRECT(self):
+# 		"""redirects to /static/ directory"""
+# 		return generate_redirect_page("/static/")
 
-	def GET_DOCS(self):
-		"""return the documentation page in HTML format"""
-		resources = ""
-		for resource in self.host.resource_list:
-			if resource["docstring"] is None:
-				resource["docstring"] = "&lt;No docs provided!&gt;"
-			resource_html = """
-				<tr>
-					<td><a href="{resource}">{resource}</a></td>
-					<td>{method}</td>
-					<td>{function_name}</td>
-					<td>{docstring}</td>
-				</tr>
-			""".format(
-				resource = resource["resource"],
-				method = resource["method"],
-				function_name = resource["function_name"],
-				docstring = resource["docstring"].replace("\n","<br />"),
-			)
-			resources = resources+resource_html
-		return """
-			<!DOCTYPE html>
-			<html>
-				<head>
-					<title>Guavacado Web Documentation</title>
-				</head>
-				<body>
-					<table border="1">
-						<tr>
-							<th>Resource</th>
-							<th>Method</th>
-							<th>Function Name</th>
-							<th>Docstring</th>
-						</tr>
-						{resources}
-					</table>
-				</body>
-			</html>
-		""".format(resources=resources)
+# 	def GET_DOCS(self):
+# 		"""return the documentation page in HTML format"""
+# 		resources = ""
+# 		for resource in self.host.resource_list:
+# 			if resource["docstring"] is None:
+# 				resource["docstring"] = "&lt;No docs provided!&gt;"
+# 			resource_html = """
+# 				<tr>
+# 					<td><a href="{resource}">{resource}</a></td>
+# 					<td>{method}</td>
+# 					<td>{function_name}</td>
+# 					<td>{docstring}</td>
+# 				</tr>
+# 			""".format(
+# 				resource = resource["resource"],
+# 				method = resource["method"],
+# 				function_name = resource["function_name"],
+# 				docstring = resource["docstring"].replace("\n","<br />"),
+# 			)
+# 			resources = resources+resource_html
+# 		return """
+# 			<!DOCTYPE html>
+# 			<html>
+# 				<head>
+# 					<title>Guavacado Web Documentation</title>
+# 				</head>
+# 				<body>
+# 					<table border="1">
+# 						<tr>
+# 							<th>Resource</th>
+# 							<th>Method</th>
+# 							<th>Function Name</th>
+# 							<th>Docstring</th>
+# 						</tr>
+# 						{resources}
+# 					</table>
+# 				</body>
+# 			</html>
+# 		""".format(resources=resources)
 
-	def GET_DOCS_JSON(self):
-		"""return the documentation page in JSON format"""
-		return json.dumps(self.host.resource_list)
+# 	def GET_DOCS_JSON(self):
+# 		"""return the documentation page in JSON format"""
+# 		return json.dumps(self.host.resource_list)
 
 if __name__ == '__main__':
 	"""
