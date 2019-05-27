@@ -13,3 +13,6 @@
 05/13/2019 [1.1.3] - 	separated components into various different files
 05/27/2019 [1.9.0] - 	started development branch [potential 2.0 release] for migration to raw sockets instead of http_server
 						reformatted documentation into new locations, updated some out-of-date documentation
+05/27/2019 [1.9.1] - 	Moved WebDispatcher and WebRequestHandler to separate files
+						Implemented ConnListener to listen for new socket connections
+						Removed unnecessary imports in many files
