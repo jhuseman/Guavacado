@@ -87,12 +87,15 @@ class ConnListener(object):
 		handle the connection to the client
 		should be running in separate thread
 		'''
-		self.conn_callback(clientsocket)
-		self.log_handler.debug('Shutting down connection from address {addr} [id {id}]'.format(addr=address,id=client_id))
-		clientsocket.shutdown(socket.SHUT_RDWR)
-		self.log_handler.debug('CLosing connection from address {addr} [id {id}]'.format(addr=address,id=client_id))
-		clientsocket.close()
-		self.log_handler.debug('Closed connection from address {addr} [id {id}]'.format(addr=address,id=client_id))
+		self.conn_callback(clientsocket, address, client_id)
+		try:
+			self.log_handler.debug('Shutting down connection from address {addr} [id {id}]'.format(addr=address,id=client_id))
+			clientsocket.shutdown(socket.SHUT_RDWR)
+			self.log_handler.debug('CLosing connection from address {addr} [id {id}]'.format(addr=address,id=client_id))
+			clientsocket.close()
+			self.log_handler.debug('Closed connection from address {addr} [id {id}]'.format(addr=address,id=client_id))
+		except OSError:
+			self.log_handler.warn('Could not shut down connection from {addr} [id {id}] because it is not open!'.format(addr=address,id=client_id))
 		# remove references to this client before closing the thread
 		if client_id in self.client_info:
 			del self.client_info[client_id]
@@ -103,17 +106,24 @@ class ConnListener(object):
 		while not self.stop_event.is_set():
 			# accept connections from outside
 			(clientsocket, address) = self.sock.accept()
-			# spawn thread using the new socket
-			self.spawn_client_thread(clientsocket, address)
+			if not self.stop_event.is_set():
+				# spawn thread using the new socket
+				self.spawn_client_thread(clientsocket, address)
 	
 	def stop(self):
 		'''stop accepting connections and shut down all sockets'''
 		self.log_handler.info('Stopping server socket.')
 		self.stop_event.set()
-		self.sock.shutdown(socket.SHUT_RDWR)
-		self.sock.close()
+		# connect as fake client to stop the looping thread
+		with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+			s.connect(('localhost', self.port))
+		try:
+			# self.sock.shutdown(socket.SHUT_RDWR)
+			self.sock.close()
+		except OSError:
+			self.log_handler.warn('Not shutting down server socket because it is not connected.')
 		self.log_handler.info('Stopping client socket connections.')
-		client_ids = self.client_info.keys()
+		client_ids = list(self.client_info.keys())
 		for client_id in client_ids:
 			if client_id in self.client_info:
 				client_dat = self.client_info[client_id]

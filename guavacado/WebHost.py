@@ -14,6 +14,7 @@ class WebHost(object):
 		class for hosting a "/static" folder
 		allows WebInterface objects to serve dynamic content alongside the "/static" folder
 	'''
+	#TODO: figure out if host=None works from external to network
 	def __init__(self,port=80,host='0.0.0.0',log_function=None,staticdir="static",staticindex="index.html",include_fp=['{staticdir}/*'],exclude_fp=[], error_404_page_func=None):
 		self.port = port
 		self.host = host
@@ -48,4 +49,12 @@ if __name__ == '__main__':
 	serves only a static folder in the local 'static' directory
 	"""
 	host = WebHost(80)
-	host.start_service()
+	import threading
+	threading.Thread(target=host.start_service).start()
+	import time
+	try:
+		while True:
+			time.sleep(1000)
+	except KeyboardInterrupt:
+		pass
+	host.stop_service()
