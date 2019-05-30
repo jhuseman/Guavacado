@@ -11,9 +11,8 @@ guavacado_version = importlib.import_module("guavacado.version_number").guavacad
 WebServerNameAndVer = "Guavacado/"+guavacado_version
 
 from guavacado.misc import generate_redirect_page
-# from guavacado.WebRequestHandler import WebRequestHandler
 from guavacado.ConnListener import ConnListener
-from guavacado.ConnHandler import ConnHandler
+from guavacado.WebRequestHandler import WebRequestHandler
 
 from datetime import datetime
 import os
@@ -61,7 +60,7 @@ class WebDispatcher(object):
 		# self.httpd = http_server.HTTPServer((self.host, self.port), self.request_handler_class)
 	
 	def handle_connection(self, clientsocket, address, client_id):
-		handler = ConnHandler(clientsocket, address, client_id, self.request_handler)
+		handler = WebRequestHandler(clientsocket, address, client_id, self.request_handler)
 		handler.handle_connection()
 		# def recv_until(sock, buf=b'', terminator=b'\r\n', recv_size=128):
 		# 	while not terminator in buf:

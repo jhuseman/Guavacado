@@ -1,8 +1,8 @@
 #! /usr/bin/env python
 
-# ConnHandler.py
+# WebRequestHandler.py
 # defines:
-#	ConnHandler
+#	WebRequestHandler
 #
 # made by Joshua Huseman, jhuseman@alumni.nd.edu
 
@@ -45,7 +45,7 @@ def parse_headers(headers):
 # def get_header(headers, header_name):
 # 	return parse_headers(headers).get(header_name,None)
 
-class ConnHandler(object):
+class WebRequestHandler(object):
 	'''handles requests by identifying function based on the URL, then dispatching the request to the appropriate function'''
 	#TODO: figure out if host=None works from external to network
 	def __init__(self, clientsocket, address, client_id, request_handler, log_handler=logging.getLogger(__name__)):

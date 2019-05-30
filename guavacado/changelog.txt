@@ -19,7 +19,7 @@
 05/28/2019 [1.9.2] - 	Implemented full functionality on raw sockets
 						Created ConnHandler for handling the HTTP protocol on the received socket connections
 						WebRequestHandler deprecated - replaced by raw socket functionality of ConnListener and ConnHandler
-						TODO: rename ConnHandler to WebRequestHandler
+05/30/2019 [1.9.3] - 	Renamed ConnHandler to WebRequestHandler
 						TODO: clean up code
 						TODO: test on python2
 						TODO: test with external libraries (rather than just default setup from WebHost.py)
