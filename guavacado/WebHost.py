@@ -6,8 +6,8 @@
 #
 # made by Joshua Huseman, jhuseman@alumni.nd.edu
 
-from guavacado.WebDocs import WebDocs
-from guavacado.WebDispatcher import WebDispatcher
+from .WebDocs import WebDocs
+from .WebDispatcher import WebDispatcher
 
 class WebHost(object):
 	'''
@@ -15,10 +15,10 @@ class WebHost(object):
 		allows WebInterface objects to serve dynamic content alongside the "/static" folder
 	'''
 	#TODO: figure out if host=None works from external to network
-	def __init__(self,port=80,host='0.0.0.0',log_function=None,staticdir="static",staticindex="index.html",include_fp=['{staticdir}/*'],exclude_fp=[], error_404_page_func=None):
+	def __init__(self,port=80,host='0.0.0.0',staticdir="static",staticindex="index.html",include_fp=['{staticdir}/*'],exclude_fp=[], error_404_page_func=None):
 		self.port = port
 		self.host = host
-		self.dispatcher = WebDispatcher(host=self.host, port=self.port, log_function=log_function, staticdir=staticdir, staticindex=staticindex,include_fp=include_fp,exclude_fp=exclude_fp, error_404_page_func=error_404_page_func)
+		self.dispatcher = WebDispatcher(host=self.host, port=self.port, staticdir=staticdir, staticindex=staticindex,include_fp=include_fp,exclude_fp=exclude_fp, error_404_page_func=error_404_page_func)
 
 		self.resource_list = []
 		self.docs = WebDocs(self)
@@ -43,18 +43,3 @@ class WebHost(object):
 			"method":method,
 		}
 		self.resource_list.append(log_entry)
-
-if __name__ == '__main__':
-	"""
-	serves only a static folder in the local 'static' directory
-	"""
-	host = WebHost(80)
-	import threading
-	threading.Thread(target=host.start_service).start()
-	import time
-	try:
-		while True:
-			time.sleep(1000)
-	except KeyboardInterrupt:
-		pass
-	host.stop_service()

@@ -16,13 +16,13 @@ class ConnListener(object):
 	calls conn_callback in a new thread with a socket when a connection is established
 	'''
 	def __init__(self, conn_callback, port=80, host=None, log_handler=logging.getLogger(__name__)):
+		self.log_handler = log_handler
 		self.conn_callback = conn_callback
 		self.port = port
 		self.host = host
 		if self.host is None:
 			# get a local hostname for the computer
 			self.host = socket.gethostname()
-		self.log_handler = log_handler
 		self.active_client_ids = []
 		self.client_ids_lock = threading.Lock()
 		self.client_info = {}
@@ -72,8 +72,8 @@ class ConnListener(object):
 			target=self.handle_client, 
 			args=(clientsocket, address, client_id), 
 			name='clienthandler_{}'.format(client_id), 
-			daemon=True,
 		)
+		client_thread.daemon=True # separated from Thread constructor for python2 compatibility
 		self.client_info[client_id] = {
 			'socket':clientsocket,
 			'address':address,
@@ -105,18 +105,23 @@ class ConnListener(object):
 		'''accept connections from clients and spawn threads for them'''
 		while not self.stop_event.is_set():
 			# accept connections from outside
-			(clientsocket, address) = self.sock.accept()
-			if not self.stop_event.is_set():
-				# spawn thread using the new socket
-				self.spawn_client_thread(clientsocket, address)
+			try:
+				(clientsocket, address) = self.sock.accept()
+				if not self.stop_event.is_set():
+					# spawn thread using the new socket
+					self.spawn_client_thread(clientsocket, address)
+			except OSError:
+				self.log_handler.error("An error was encountered trying to accept a new socket connection!")
 	
 	def stop(self):
 		'''stop accepting connections and shut down all sockets'''
 		self.log_handler.info('Stopping server socket.')
 		self.stop_event.set()
 		# connect as fake client to stop the looping thread
-		with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-			s.connect(('localhost', self.port))
+		s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		s.connect(('localhost', self.port))
+		s.shutdown(socket.SHUT_RDWR)
+		s.close()
 		try:
 			# self.sock.shutdown(socket.SHUT_RDWR)
 			self.sock.close()
@@ -131,5 +136,7 @@ class ConnListener(object):
 				client_dat['socket'].shutdown(socket.SHUT_RDWR)
 				client_dat['socket'].close()
 				self.log_handler.debug('Waiting for thread id {ident} to close'.format(ident=client_dat['thread'].ident))
-				client_dat['thread'].join()
+				client_dat['thread'].join(timeout=5)
+				if client_dat['thread'].is_alive():
+					self.log_handler.warn('Thread id {ident} ({addr} [id {id}]) did not close after 5 seconds! Continuing anyways...'.format(ident=client_dat['thread'].ident,addr=client_dat['address'],id=client_id))
 		self.log_handler.info('All client socket connections stopped.')

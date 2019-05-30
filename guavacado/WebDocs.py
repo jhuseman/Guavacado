@@ -6,8 +6,8 @@
 #
 # made by Joshua Huseman, jhuseman@alumni.nd.edu
 
-from guavacado.WebInterface import WebInterface
-from guavacado.misc import generate_redirect_page
+from .WebInterface import WebInterface
+from .misc import generate_redirect_page
 
 import json
 
