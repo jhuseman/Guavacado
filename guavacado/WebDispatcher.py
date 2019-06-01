@@ -9,22 +9,22 @@
 from .version_number import guavacado_version
 WebServerNameAndVer = "Guavacado/"+guavacado_version
 
-from .misc import generate_redirect_page, init_logger, url_decode
+from .misc import generate_redirect_page, init_logger, url_decode, addr_rep
 from .ConnListener import ConnListener
 from .WebRequestHandler import WebRequestHandler
 
 from datetime import datetime
 import os
+import threading
 import fnmatch
 
 class WebDispatcher(object):
 	'''handles requests by identifying function based on the URL, then dispatching the request to the appropriate function'''
 	#TODO: figure out if host=None works from external to network
-	def __init__(self, host=None, port=80, timeout=None, staticdir="static", staticindex="index.html", include_fp=['{staticdir}/*'], exclude_fp=[], error_404_page_func=None):
-		self.host = host
-		self.port = port
-		self.timeout = timeout
+	def __init__(self, addr=None, timeout=None, staticdir="static", staticindex="index.html", include_fp=['{staticdir}/*'], exclude_fp=[], error_404_page_func=None):
 		self.log_handler = init_logger(__name__)
+		self.addr = addr
+		self.timeout = timeout
 		self.staticdir = staticdir
 		self.staticindex = staticindex
 		self.include_fp = include_fp
@@ -32,8 +32,13 @@ class WebDispatcher(object):
 		self.error_404_page_func = error_404_page_func
 		self.resource_dict = {}
 		self.set_default_handler("GET", self.default_GET_handler)
-		self.conn_listener = ConnListener(self.handle_connection, port=self.port, host=self.host)
+		self.create_conn_listeners()
 	
+	def create_conn_listeners(self):
+		self.conn_listeners = []
+		for addr in self.addr:
+			self.conn_listeners.append({'listener':ConnListener(self.handle_connection, addr=addr), 'addr':addr})
+
 	def handle_connection(self, clientsocket, address, client_id):
 		handler = WebRequestHandler(clientsocket, address, client_id, self.request_handler, timeout=self.timeout)
 		handler.handle_connection()
@@ -74,12 +79,8 @@ class WebDispatcher(object):
 		self.resource_dict[method]['resources'][url_prefix][url_param_count] = callback
 	
 	def initialize_request_handler(self, method):
-		# def req_method_handler(request_handler_instance):
-			# pass # self.request_handler_class.GENERAL_REQ_HANDLER(request_handler_instance, self.request_handler)
 		if method not in self.resource_dict:
 			self.resource_dict[method] = {'default':None,'resources':{}}
-			# do_command = 'do_'+method
-			# setattr(self.request_handler_class, do_command, req_method_handler)
 
 	def request_handler(self, url=None, method=None, headers=None, body=None):
 		if method in self.resource_dict:
@@ -126,13 +127,24 @@ class WebDispatcher(object):
 		return False
 
 	def start_service(self):
-		self.conn_listener.run()
+		for listener in self.conn_listeners:
+			self.log_handler.debug('Starting connection listener for {addr}'.format(addr=addr_rep(listener['addr'])))
+			listener['thread'] = threading.Thread(target=listener['listener'].run, name='conn_listener_{addr}'.format(addr=addr_rep(listener['addr'])))
+			listener['thread'].daemon = True
+			listener['thread'].start()
 	
 	def stop_service(self):
-		self.conn_listener.stop()
-	
+		for listener in self.conn_listeners:
+			self.log_handler.debug('Stopping connection listener for {addr}'.format(addr=addr_rep(listener['addr'])))
+			listener['listener'].stop()
+			listener['thread'].join(60)
+			if listener['thread'].is_alive():
+				self.log_handler.warn('Continuing without closing connection listener thread for {addr} because it did not close!'.format(addr=addr_rep(listener['addr'])))
+			else:
+				self.log_handler.debug('Stopped connection listener for {addr}'.format(addr=addr_rep(listener['addr'])))
+
 	def get_address_string(self):
-		return "{server} Server at {host} Port {port}".format(server=WebServerNameAndVer, host=self.host, port=self.port)
+		return "{server} Server at {addr}".format(server=WebServerNameAndVer, addr=addr_rep(self.addr, pretty=True))
 	
 	def get_dir_page(self, path):
 		if path[-1]!='/':

@@ -7,6 +7,7 @@
 # made by Joshua Huseman, jhuseman@alumni.nd.edu
 
 import socket
+import ssl
 import threading
 
 from .misc import init_logger, addr_rep
@@ -16,15 +17,26 @@ class ConnListener(object):
 	opens a socket listening for a connection from a client
 	calls conn_callback in a new thread with a socket when a connection is established
 	'''
-	def __init__(self, conn_callback, port=80, host=None):
+	def __init__(self, conn_callback, addr=None):
 		self.log_handler = init_logger(__name__)
 		self.conn_callback = conn_callback
-		self.port = port
-		self.host = host
-		if self.host is None:
-			# get a local hostname for the computer
-			# self.host = socket.gethostname()
-			self.host = ''
+		if addr is None:
+			self.addr = ('',80)
+			self.tls = None
+		elif addr[0] is None:
+			self.addr = ('',80)
+			self.tls = addr[1]
+		else:
+			if addr[0][0] is None:
+				self.addr = ('',addr[0][1])
+				self.tls = addr[1]
+			else:
+				self.addr = addr[0]
+				self.tls = addr[1]
+		if self.tls is None:
+			self.use_tls = False
+		else:
+			self.use_tls = True
 		self.active_client_ids = []
 		self.recent_client_ids = []
 		self.client_ids_lock = threading.Lock()
@@ -34,14 +46,16 @@ class ConnListener(object):
 	
 	def create_server_socket(self):
 		'''creates a socket object listening for connections and saves it to the variable self.sock'''
-		#TODO: add an option to create a TLS socket instead, to implement HTTPS - https://docs.python.org/3/library/ssl.html
-		self.log_handler.debug('Starting listening on {addr} for connections.'.format(addr=addr_rep((self.host, self.port))))
+		self.log_handler.debug('Starting listening on {addr} for connections.'.format(addr=addr_rep(self.addr)))
 		# create an INET, STREAMing (TCP) socket
 		self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		# bind the socket to a public host, and a well-known port
-		self.sock.bind((self.host, self.port))
+		self.sock.bind(self.addr)
 		# become a server socket
 		self.sock.listen(5) # 5 is the number of queued connections to allow before refusing connections from new clients - 5 is typically the maximum for the OS
+		if self.use_tls:
+			self.tls_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+			self.tls_context.load_cert_chain(certfile=self.tls[0], keyfile=self.tls[1])
 
 	def gen_client_id(self):
 		'''generate an id number to identify a client'''
@@ -108,11 +122,15 @@ class ConnListener(object):
 
 	def run(self):
 		'''accept connections from clients and spawn threads for them'''
-		self.log_handler.debug('Starting accepting connections on {addr}'.format(addr=addr_rep((self.host, self.port))))
+		self.log_handler.debug('Starting accepting connections on {addr}'.format(addr=addr_rep(self.addr)))
 		while not self.stop_event.is_set():
 			# accept connections from outside
 			try:
 				(clientsocket, address) = self.sock.accept()
+				if self.use_tls:
+					# for HTTPS, wrap socket in a TLS socket
+					raw_socket = clientsocket
+					clientsocket = self.tls_context.wrap_socket(raw_socket, server_side=True)
 				if not self.stop_event.is_set():
 					# spawn thread using the new socket
 					self.spawn_client_thread(clientsocket, address)
@@ -125,7 +143,7 @@ class ConnListener(object):
 		self.stop_event.set()
 		# connect as fake client to stop the looping thread
 		s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		s.connect(('localhost', self.port))
+		s.connect(('localhost', self.addr[1]))
 		s.shutdown(socket.SHUT_RDWR)
 		s.close()
 		try:

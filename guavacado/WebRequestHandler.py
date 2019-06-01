@@ -38,8 +38,8 @@ class IncorrectRequestSyntax(WebRequestHandlingException):
 class WebRequestHandler(object):
 	'''handles requests by identifying function based on the URL, then dispatching the request to the appropriate function'''
 	#TODO: figure out if host=None works from external to network
-	def __init__(self, clientsocket, address, client_id, request_handler, timeout=None, log_handler=init_logger(__name__)):
-		self.log_handler = log_handler
+	def __init__(self, clientsocket, address, client_id, request_handler, timeout=None):
+		self.log_handler = init_logger(__name__)
 		self.clientsocket = clientsocket
 		self.address = address
 		self.client_id = client_id

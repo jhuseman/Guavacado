@@ -24,5 +24,14 @@
 						Added functionality to invoke module with "python -m guavacado" for a simple web server
 05/31/2019 [1.9.5] - 	tested access from external to the network
 						cleaned up code
+06/01/2019 [1.9.6] - 	added functionality to host on multiple ports
+						added TLS/HTTPS support (untested)
+							certificate file and key file should be specified alongside address for the HTTPS ports
+						changed syntax of specifying listening address
+							WebHost now expects an address in the format addr=[((host,port),None)] for http 
+							and addr=[((host,port),(certfile,keyfile))] for https
+							instead of old host=host,port=port syntax
 						TODO: test with external libraries (rather than just default setup from __main__.py)
-						TODO: implement TLS/HTTPS
+						TODO: test TLS/HTTPS
+						TODO: implement easy functionality to instantly redirect a HTTP connection to HTTPS page
+							TODO: consider allowing connecting a function to serve all requests (or subdir of one path) in a WebInterface (called like WebDispatcher.request_handler)

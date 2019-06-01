@@ -16,7 +16,7 @@ class WebInterface(object):
 	See implementation of __init__ class for an example initialization.
 	"""
 
-	def __init__(self, host=None, host_kwargs={'port':80}):
+	def __init__(self, host=None, host_kwargs={}):
 		# starts a WebHost on port 80 that
 		if host is None:
 			from guavacado import WebHost
