@@ -6,47 +6,25 @@
 #
 # made by Joshua Huseman, jhuseman@alumni.nd.edu
 
-import importlib # using importlib for some imports to stop warnings from IDE about missing modules
 from .version_number import guavacado_version
 WebServerNameAndVer = "Guavacado/"+guavacado_version
 
-from .misc import generate_redirect_page
+from .misc import generate_redirect_page, init_logger, url_decode
 from .ConnListener import ConnListener
 from .WebRequestHandler import WebRequestHandler
 
 from datetime import datetime
 import os
 import fnmatch
-import traceback
-import logging
-
-import sys # only needed for python version check
-if sys.version_info[0] < 3:
-	# Python 2-specific imports and functions
-	# http_server = importlib.import_module("BaseHTTPServer")
-	urllib = importlib.import_module("urllib")
-	url_decode = urllib.unquote
-	def encode_to_send(s):
-		return s
-else:
-	# Python 3-specific imports and functions
-	# import http.server as http_server
-	from urllib.parse import unquote as url_decode
-	def encode_to_send(s):
-		return s.encode('utf-8')
-
-def parse_headers(headers):
-	return dict([tuple(l.split(b': ',1)) for l in headers.split(b'\r\n') if b': ' in l])
-# def get_header(headers, header_name):
-# 	return parse_headers(headers).get(header_name,None)
 
 class WebDispatcher(object):
 	'''handles requests by identifying function based on the URL, then dispatching the request to the appropriate function'''
 	#TODO: figure out if host=None works from external to network
-	def __init__(self, host=None, port=80, log_handler=logging.getLogger(__name__), staticdir="static", staticindex="index.html", include_fp=['{staticdir}/*'], exclude_fp=[], error_404_page_func=None):
+	def __init__(self, host=None, port=80, timeout=None, staticdir="static", staticindex="index.html", include_fp=['{staticdir}/*'], exclude_fp=[], error_404_page_func=None):
 		self.host = host
 		self.port = port
-		self.log_handler = log_handler
+		self.timeout = timeout
+		self.log_handler = init_logger(__name__)
 		self.staticdir = staticdir
 		self.staticindex = staticindex
 		self.include_fp = include_fp
@@ -57,7 +35,7 @@ class WebDispatcher(object):
 		self.conn_listener = ConnListener(self.handle_connection, port=self.port, host=self.host)
 	
 	def handle_connection(self, clientsocket, address, client_id):
-		handler = WebRequestHandler(clientsocket, address, client_id, self.request_handler)
+		handler = WebRequestHandler(clientsocket, address, client_id, self.request_handler, timeout=self.timeout)
 		handler.handle_connection()
 
 	def split_url_params(self, url):

@@ -8,6 +8,7 @@
 
 from .WebDocs import WebDocs
 from .WebDispatcher import WebDispatcher
+from .misc import init_logger, set_loglevel, addr_rep
 
 class WebHost(object):
 	'''
@@ -15,22 +16,25 @@ class WebHost(object):
 		allows WebInterface objects to serve dynamic content alongside the "/static" folder
 	'''
 	#TODO: figure out if host=None works from external to network
-	def __init__(self,port=80,host='0.0.0.0',staticdir="static",staticindex="index.html",include_fp=['{staticdir}/*'],exclude_fp=[], error_404_page_func=None):
+	def __init__(self,port=80,host=None,timeout=10,loglevel='INFO',staticdir="static",staticindex="index.html",include_fp=['{staticdir}/*'],exclude_fp=[], error_404_page_func=None):
+		self.log_handler = init_logger(__name__)
+		set_loglevel(loglevel)
 		self.port = port
 		self.host = host
-		self.dispatcher = WebDispatcher(host=self.host, port=self.port, staticdir=staticdir, staticindex=staticindex,include_fp=include_fp,exclude_fp=exclude_fp, error_404_page_func=error_404_page_func)
+		self.dispatcher = WebDispatcher(host=self.host, port=self.port, timeout=timeout, staticdir=staticdir, staticindex=staticindex,include_fp=include_fp,exclude_fp=exclude_fp, error_404_page_func=error_404_page_func)
 
 		self.resource_list = []
 		self.docs = WebDocs(self)
 
 	def start_service(self):
-		# # output resource list (for debug)
-		# print "All Resources:"
-		# print self.resource_list
+		self.log_handler.info('Starting web server on {addr}'.format(addr=addr_rep((self.host, self.port))))
+		self.log_handler.debug("All Resources: {}".format(self.resource_list))
 		self.dispatcher.start_service()
 	
 	def stop_service(self):
+		self.log_handler.info('Stopping web server on {addr}'.format(addr=addr_rep((self.host, self.port))))
 		self.dispatcher.stop_service()
+		self.log_handler.info('Web server stopped on {addr}'.format(addr=addr_rep((self.host, self.port))))
 
 	def get_dispatcher(self):
 		return self.dispatcher

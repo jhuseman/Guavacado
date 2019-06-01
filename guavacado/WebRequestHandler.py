@@ -6,54 +6,45 @@
 #
 # made by Joshua Huseman, jhuseman@alumni.nd.edu
 
-import importlib # using importlib for some imports to stop warnings from IDE about missing modules
-guavacado_version = importlib.import_module("guavacado.version_number").guavacado_version
-WebServerNameAndVer = "Guavacado/"+guavacado_version
+from .misc import init_logger, addr_rep
 
-from guavacado.misc import generate_redirect_page
-# from guavacado.WebRequestHandler import WebRequestHandler
-from guavacado.ConnListener import ConnListener
-
-from datetime import datetime
-import os
-import fnmatch
 import mimetypes
 import traceback
-import logging
-
-import sys # only needed for python version check
-if sys.version_info[0] < 3:
-	# Python 2-specific imports and functions
-	# http_server = importlib.import_module("BaseHTTPServer")
-	urllib = importlib.import_module("urllib")
-	url_decode = urllib.unquote
-	def encode_to_send(s):
-		return s
-	def decode_to_str(s):
-		return s
-else:
-	# Python 3-specific imports and functions
-	# import http.server as http_server
-	from urllib.parse import unquote as url_decode
-	def encode_to_send(s):
-		return s.encode('utf-8')
-	def decode_to_str(s):
-		return s.decode('utf-8')
+import socket
 
 def parse_headers(headers):
 	return dict([tuple(l.split(': ',1)) for l in headers.split('\r\n') if ': ' in l])
-# def get_header(headers, header_name):
-# 	return parse_headers(headers).get(header_name,None)
+
+class WebRequestHandlingException(Exception):
+	'''base class for all exceptions related to web requests'''
+	pass
+
+class RequestTimedOut(WebRequestHandlingException):
+	'''indicates there was a timeout receiving required data'''
+	pass
+
+class IncompleteRequest(WebRequestHandlingException):
+	'''indicates not enough data was received with the request'''
+	pass
+
+class IncompleteRequestHeader(WebRequestHandlingException):
+	'''indicates the request header was not terminated properly'''
+	pass
+
+class IncorrectRequestSyntax(WebRequestHandlingException):
+	'''indicates the syntax of the main request line was incorrect'''
+	pass
 
 class WebRequestHandler(object):
 	'''handles requests by identifying function based on the URL, then dispatching the request to the appropriate function'''
 	#TODO: figure out if host=None works from external to network
-	def __init__(self, clientsocket, address, client_id, request_handler, log_handler=logging.getLogger(__name__)):
+	def __init__(self, clientsocket, address, client_id, request_handler, timeout=None, log_handler=init_logger(__name__)):
+		self.log_handler = log_handler
 		self.clientsocket = clientsocket
 		self.address = address
 		self.client_id = client_id
 		self.request_handler = request_handler
-		self.log_handler = log_handler
+		self.clientsocket.settimeout(timeout)
 
 		self.is_recieved = False
 		self.buf = b''
@@ -67,60 +58,73 @@ class WebRequestHandler(object):
 		try:
 			self.req = self.recv_until()
 			if self.req is None:
-				self.log_handler.warn('Incomplete request from {addr} [id {id}]!'.format(addr=address, id=client_id))
-				return
+				raise IncompleteRequest()
 			self.head = self.recv_until(terminator=b'\r\n\r\n')
 			if self.head is None:
-				self.log_handler.warn('Incomplete request header from {addr} [id {id}]!'.format(addr=address, id=client_id))
-				return
-			self.headers = parse_headers(decode_to_str(self.head))
+				raise IncompleteRequestHeader()
+			self.headers = parse_headers(self.head.decode('utf-8'))
 			self.content_length_str = self.headers.get(b'Content-Length',b'0')
 			self.content_length = int(self.content_length_str)
-			self.body = decode_to_str(self.recv_bytes(self.content_length))
+			self.body = self.recv_bytes(self.content_length).decode('utf-8')
 			req_parts = self.req.replace(b'\r\n',b'').split(None,2)
 			if len(req_parts) < 2:
-				raise IndexError("HTTP request missing delimeters!")
+				raise IncorrectRequestSyntax()
 			self.method_bytes, self.url_bytes = req_parts[:2]
-			self.method = decode_to_str(self.method_bytes)
-			self.url = decode_to_str(self.url_bytes)
+			self.method = self.method_bytes.decode('utf-8')
+			self.url = self.url_bytes.decode('utf-8')
 			self.is_recieved = True
+		except RequestTimedOut:
+			self.log_handler.info('{addr} [id {id}] Request timed out!'.format(addr=addr_rep(self.address), id=self.client_id))
+		except IncompleteRequestHeader:
+			self.log_handler.error('{addr} [id {id}] Incomplete request header!'.format(addr=addr_rep(self.address), id=self.client_id))
+		except IncompleteRequest:
+			self.log_handler.error('{addr} [id {id}] Incomplete request!'.format(addr=addr_rep(self.address), id=self.client_id))
 		except:
-			self.log_handler.error('An Error was encountered while receiving the request from {addr} [id {id}]!'.format(addr=self.address, id=self.client_id))
+			self.log_handler.error('{addr} [id {id}] An Error was encountered while receiving the request!'.format(addr=addr_rep(self.address), id=self.client_id))
 
 	def send_response(self):
 		try:
-			self.log_handler.info('Handling request from {addr} [id {id}]: {method} {url} [body len {blen}]'.format(addr=self.address, id=self.client_id, method=self.method, url=self.url, blen=len(self.body)))
+			self.log_handler.info('{addr} [id {id}] Handling request: {method} {url} [body len {blen}]'.format(addr=addr_rep(self.address), id=self.client_id, method=self.method, url=self.url, blen=len(self.body)))
 			ret_data = self.request_handler(url=self.url, method=self.method, headers=self.headers, body=self.body)
 			if ret_data is None:
 				self.send_header_as_code(404, url='404.html')
-				self.clientsocket.sendall(encode_to_send(self.get_404_page()))
+				self.clientsocket.sendall(self.get_404_page().encode('utf-8'))
 			else:
 				self.send_header()
-				self.clientsocket.sendall(encode_to_send(ret_data))
+				self.clientsocket.sendall(ret_data.encode('utf-8'))
 		except:
-			self.log_handler.error('An Error was encountered while handling the request from {addr} [id {id}]!'.format(addr=self.address, id=self.client_id))
+			self.log_handler.warn('{addr} [id {id}] An Error was encountered while handling the request!'.format(addr=addr_rep(self.address), id=self.client_id))
 			tb = traceback.format_exc()
-			self.send_header_as_code(500, url='500.html')
-			self.clientsocket.sendall(encode_to_send(self.get_500_page(tb=tb)))
+			try:
+				self.send_header_as_code(500, url='500.html')
+				self.clientsocket.sendall(self.get_500_page(tb=tb).encode('utf-8'))
+			except:
+				self.log_handler.error('{addr} [id {id}] An Error was encountered while attempting to send a 500 Error response!'.format(addr=addr_rep(self.address), id=self.client_id))
 		
 	def recv_until(self, terminator=b'\r\n', recv_size=128):
-		while not terminator in self.buf:
-			recv_data = self.clientsocket.recv(recv_size)
-			self.buf = self.buf + recv_data
-			if len(recv_data)==0:
-				return None
+		try:
+			while not terminator in self.buf:
+				recv_data = self.clientsocket.recv(recv_size)
+				self.buf = self.buf + recv_data
+				if len(recv_data)==0:
+					return None
+		except socket.timeout:
+			raise RequestTimedOut()
 		(ret, rem) = self.buf.split(terminator, 1)
 		self.buf = rem
 		return ret+terminator
 	
 	def recv_bytes(self, num_bytes, buf=b''):
-		while len(self.buf) < num_bytes:
-			recv_size = num_bytes-len(self.buf)
-			recv_data = self.clientsocket.recv(recv_size)
-			self.buf = self.buf + recv_data
-			if len(recv_data)==0:
-				self.buf = b''
-				return self.buf
+		try:
+			while len(self.buf) < num_bytes:
+				recv_size = num_bytes-len(self.buf)
+				recv_data = self.clientsocket.recv(recv_size)
+				self.buf = self.buf + recv_data
+				if len(recv_data)==0:
+					self.buf = b''
+					return self.buf
+		except socket.timeout:
+			raise RequestTimedOut()
 		ret = self.buf[:num_bytes]
 		self.buf = self.buf[num_bytes:]
 		return ret
@@ -140,8 +144,8 @@ class WebRequestHandler(object):
 		mime_type = mimetypes.MimeTypes().guess_type(mime_url)[0]
 		if mime_type is None:
 			mime_type = "text/html"
-		self.clientsocket.sendall(encode_to_send('HTTP/1.1 {code} {desc}\r\n'.format(code=status_code, desc=http_code_descriptions[status_code])))
-		self.clientsocket.sendall(encode_to_send('Content-type: {type}\r\n'.format(type=mime_type)))
+		self.clientsocket.sendall('HTTP/1.1 {code} {desc}\r\n'.format(code=status_code, desc=http_code_descriptions[status_code]).encode('utf-8'))
+		self.clientsocket.sendall('Content-type: {type}\r\n'.format(type=mime_type).encode('utf-8'))
 		self.clientsocket.sendall(b'\r\n\r\n')
 	
 	def send_header(self):

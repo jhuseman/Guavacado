@@ -22,7 +22,7 @@
 05/30/2019 [1.9.3] - 	Renamed ConnHandler to WebRequestHandler
 05/30/2019 [1.9.4] - 	fixed python2 functionality
 						Added functionality to invoke module with "python -m guavacado" for a simple web server
-						TODO: clean up code
-						TODO: test with external libraries (rather than just default setup from WebHost.py)
+05/31/2019 [1.9.5] - 	tested access from external to the network
+						cleaned up code
+						TODO: test with external libraries (rather than just default setup from __main__.py)
 						TODO: implement TLS/HTTPS
-						TODO: test if host=None works from external to network
