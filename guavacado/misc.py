@@ -1,15 +1,6 @@
 #! /usr/bin/env python
 
-# misc.py
-# defines:
-#	generate_redirect_page
-#	set_loglevel
-#	init_logger
-#	addr_rep
-#	url_decode
-#
-# made by Joshua Huseman, jhuseman@alumni.nd.edu
-
+import time
 import logging
 import sys
 import urllib
@@ -114,3 +105,10 @@ def addr_rep(addr, pretty=False):
 def url_decode(url):
 	urllib_parse = getattr(urllib,'parse',urllib)
 	return urllib_parse.unquote(url)
+
+def wait_for_keyboardinterrupt():
+	try:
+		while True:
+			time.sleep(86400) # wait 24 hours before looping again
+	except KeyboardInterrupt:
+		pass

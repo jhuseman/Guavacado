@@ -1,10 +1,6 @@
 #! /usr/bin/env python
 
-# WebInterface.py
-# defines:
-#	WebInterface
-#
-# made by Joshua Huseman, jhuseman@alumni.nd.edu
+from .misc import url_decode
 
 class WebInterface(object):
 	"""
@@ -16,19 +12,65 @@ class WebInterface(object):
 	See implementation of __init__ class for an example initialization.
 	"""
 
-	def __init__(self, host=None, host_kwargs={}):
+	def __init__(self, host=None, host_kwargs={}, host_addr_kwargs={}, dispatcher_level=None):
 		# starts a WebHost on port 80 that
 		if host is None:
 			from guavacado import WebHost
 			self.host = WebHost(**host_kwargs)
+			self.host.add_addr(**host_addr_kwargs)
 		else:
 			self.host = host
+		
+		self.resource_dict = {}
+		self.host.get_web_dispatcher().add_resource_handler(self.identify_request, self.handle_request, 'WebInterface', level=dispatcher_level)
 
 		# # add lines like the following:
 		# self.connect('/test/:id','GET_ID','GET')
 		# self.connect('/test/:id',self.GET_ID,'GET')
 		# # to call member function GET_ID() with the argument after "/test/" when a GET request
 		# # is received for "/test/<any text here>"
+	
+	def identify_request(self, url=None, method=None, headers=None, body=None):
+		if method in self.resource_dict:
+			url_no_browseparams = url.split('?')[0] # remove and ignore anything after a question mark
+			for (url_prefix, url_param_count, params) in self.get_possible_split_url_params(url_no_browseparams):
+				if url_prefix in self.resource_dict[method]:
+					if url_param_count in self.resource_dict[method][url_prefix]:
+						callback = self.resource_dict[method][url_prefix][url_param_count]
+						args = (body,) + params
+						return (callback, args)
+		return None
+	
+	def handle_request(self, callback, args):
+		return callback(*args)
+	
+	def get_possible_split_url_params(self, url):
+		ret = []
+		split_url = url.split('/')
+		remaining = split_url
+		removed = []
+		while len(remaining)>0:
+			prefix = '/'.join(remaining)
+			param_count = len(split_url)-len(remaining)
+			params = removed[:param_count]
+			if (prefix+'/')==url:
+				ret.append((prefix, param_count, params))
+				param_count = param_count-1
+				params = removed[:param_count]
+			params_decoded = []
+			for par in params:
+				params_decoded.append(url_decode(par))
+			params_decoded_tup = tuple(params_decoded)
+			ret.append((prefix, param_count, params_decoded_tup))
+			removed = [remaining[-1]] + removed
+			remaining = remaining[:-1]
+		return ret
+	
+	def split_url_params(self, url):
+		split_url = url.split('/:')
+		prefix = split_url[0]
+		param_count = len(split_url)-1
+		return (prefix, param_count)
 	
 	def connect(self, resource, action, method, body_included=False):
 		if isinstance(action, str):
@@ -49,9 +91,14 @@ class WebInterface(object):
 		else:
 			def disp_callback(body, *args):
 				return callback(*args)
-		self.dispatcher.connect(resource, disp_callback, method)
+		if method not in self.resource_dict:
+			self.resource_dict[method] = {}
+		(url_prefix, url_param_count) = self.split_url_params(resource)
+		if url_prefix not in self.resource_dict[method]:
+			self.resource_dict[method][url_prefix] = {}
+		self.resource_dict[method][url_prefix][url_param_count] = disp_callback
 		# log this connection on the host
-		self.host.log_connection(resource,callback,method)
+		self.host.get_docs().log_connection(resource,callback,method)
 	def start_service(self):
 		self.host.start_service()
 	def stop_service(self):

@@ -1,3 +1,6 @@
+Guavacado changelog
+made by Joshua Huseman, jhuseman@alumni.nd.edu
+
 06/08/2016 [0.1.0]
 06/13/2016 [0.2.0]
 08/01/2017 [0.3.0] - 	removed logging to screen
@@ -31,7 +34,21 @@
 							WebHost now expects an address in the format addr=[((host,port),None)] for http 
 							and addr=[((host,port),(certfile,keyfile))] for https
 							instead of old host=host,port=port syntax
+06/19/2019 [1.9.7] - 	refactored multi-port functionality to add ConnDispatcher, separated from functionality of WebDispatcher
+							ConnDispatcher creates ConnListener instances for specific addresses and dispatches connections to the correct WebDispatcher (or similar class) instance
+								This allows for other classes like WebDispatcher to be developed to serve specific ports differently
+								Example potential expansions:
+									Concurrently run bare socket connections on a secondary port
+									restrict one port to only serve files while another port serves a WebInterface
+									Redirect all traffic over a non-TLS socket to the HTTPS port number
+								These expansions should be accessible as an optional argument to the WebHost.add_addr() function in a later version
+							WebDispatcher passes a connection through WebRequestHandler, then dispatches the request to the correct Webinterface (or similar class) instance
+								WebFileInterface is a variation on the WebInterface class specifically for file hosting
+						re-implemented file hosting functionality (missing in version 1.9.6) in WebFileInterface class
+						changed syntax (again) of specifying listening address
+							addresses should now be specified by calling WebHost.add_addr() for each address after instantiating WebHost
 						TODO: test with external libraries (rather than just default setup from __main__.py)
 						TODO: test TLS/HTTPS
 						TODO: implement easy functionality to instantly redirect a HTTP connection to HTTPS page
 							TODO: consider allowing connecting a function to serve all requests (or subdir of one path) in a WebInterface (called like WebDispatcher.request_handler)
+						TODO: add icon to docs or directory listing page (and maybe 404/500?)

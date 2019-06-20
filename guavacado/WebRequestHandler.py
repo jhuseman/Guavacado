@@ -1,11 +1,5 @@
 #! /usr/bin/env python
 
-# WebRequestHandler.py
-# defines:
-#	WebRequestHandler
-#
-# made by Joshua Huseman, jhuseman@alumni.nd.edu
-
 from .misc import init_logger, addr_rep
 
 import mimetypes

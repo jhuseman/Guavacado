@@ -1,24 +1,14 @@
-import threading
-import time
-
 from .WebHost import WebHost
-
-def wait_for_keyboardinterrupt():
-	try:
-		while True:
-			time.sleep(86400) # wait 24 hours before looping again
-	except KeyboardInterrupt:
-		pass
+from .misc import wait_for_keyboardinterrupt
 
 def main():
 	"""serves only a static folder in the local 'static' directory"""
-	host = WebHost([
-		((None,80),None),
-		((None,81),None),
-		((None,82),None),
-		((None,83),None),
-		# ((None,880),('test','test')),
-	], loglevel='INFO')
+	host = WebHost(loglevel='INFO')
+	host.add_addr(port=80)
+	host.add_addr(port=81)
+	host.add_addr(port=82)
+	host.add_addr(port=83)
+	# host.add_addr(port=880, TLS=('test','test'))
 	host.start_service()
 	wait_for_keyboardinterrupt()
 	host.stop_service()

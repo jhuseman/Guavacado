@@ -1,11 +1,5 @@
 #! /usr/bin/env python
 
-# ConnListener.py
-# defines:
-#	ConnListener
-#
-# made by Joshua Huseman, jhuseman@alumni.nd.edu
-
 import socket
 import ssl
 import threading

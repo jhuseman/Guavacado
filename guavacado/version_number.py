@@ -1,1 +1,1 @@
-guavacado_version = '1.9.6'
+guavacado_version = '1.9.7'
