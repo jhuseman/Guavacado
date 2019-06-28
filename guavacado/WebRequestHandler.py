@@ -1,6 +1,7 @@
 #! /usr/bin/env python
 
 from .misc import init_logger, addr_rep
+from .http_status_codes import http_status_codes
 
 import mimetypes
 import traceback
@@ -81,16 +82,23 @@ class WebRequestHandler(object):
 			self.log_handler.info('{addr} [id {id}] Handling request: {method} {url} [body len {blen}]'.format(addr=addr_rep(self.address), id=self.client_id, method=self.method, url=self.url, blen=len(self.body)))
 			ret_data = self.request_handler(url=self.url, method=self.method, headers=self.headers, body=self.body)
 			if ret_data is None:
-				self.send_header_as_code(404, url='404.html')
+				self.send_header_as_code(status_code=404, url='404.html')
 				self.clientsocket.sendall(self.get_404_page().encode('utf-8'))
+			elif type(ret_data) in [tuple, list] and len(ret_data)>=2:
+				header_data = {'url':self.url}
+				header_data.update(ret_data[0])
+				ret_buf = ret_data[1]
+				self.send_header_as_code(**header_data)
+				if not ret_buf is None:
+					self.clientsocket.sendall(ret_buf.encode('utf-8'))
 			else:
-				self.send_header()
+				self.send_header_as_code()
 				self.clientsocket.sendall(ret_data.encode('utf-8'))
 		except:
 			self.log_handler.warn('{addr} [id {id}] An Error was encountered while handling the request!'.format(addr=addr_rep(self.address), id=self.client_id))
 			tb = traceback.format_exc()
 			try:
-				self.send_header_as_code(500, url='500.html')
+				self.send_header_as_code(status_code=500, url='500.html')
 				self.clientsocket.sendall(self.get_500_page(tb=tb).encode('utf-8'))
 			except:
 				self.log_handler.error('{addr} [id {id}] An Error was encountered while attempting to send a 500 Error response!'.format(addr=addr_rep(self.address), id=self.client_id))
@@ -123,13 +131,8 @@ class WebRequestHandler(object):
 		self.buf = self.buf[num_bytes:]
 		return ret
 	
-	def send_header_as_code(self, status_code, url=None):
+	def send_header_as_code(self, status_code=200, url=None, extra_header_keys={}):
 		"""send the header of the response with the given status code"""
-		http_code_descriptions = {
-			200:'OK',
-			404:'Not Found',
-			500:'Internal Server Error',
-		}
 		if url is None:
 			url = self.url
 		mime_url = url
@@ -138,13 +141,13 @@ class WebRequestHandler(object):
 		mime_type = mimetypes.MimeTypes().guess_type(mime_url)[0]
 		if mime_type is None:
 			mime_type = "text/html"
-		self.clientsocket.sendall('HTTP/1.1 {code} {desc}\r\n'.format(code=status_code, desc=http_code_descriptions[status_code]).encode('utf-8'))
-		self.clientsocket.sendall('Content-type: {type}\r\n'.format(type=mime_type).encode('utf-8'))
+		header_keys = {'Content-type':mime_type}
+		header_keys.update(extra_header_keys)
+		self.clientsocket.sendall('HTTP/1.1 {code} {desc}\r\n'.format(code=status_code, desc=http_status_codes[status_code]).encode('utf-8'))
+		for key in header_keys:
+			val = header_keys[key]
+			self.clientsocket.sendall('{key}: {val}\r\n'.format(key=key, val=val).encode('utf-8'))
 		self.clientsocket.sendall(b'\r\n\r\n')
-	
-	def send_header(self):
-		"""send the header for a 200 status code"""
-		self.send_header_as_code(200)
 	
 	def get_404_page(self):
 		return ('<head><title>Error 404: Not Found</title></head>'+ \

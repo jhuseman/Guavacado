@@ -26,6 +26,12 @@ def generate_redirect_page(dest):
 		</html>
 	""".format(dest=dest)
 
+def generate_redirect_page_w_statuscode(dest, use_code=301):
+	extra_keys = {}
+	if use_code in [301, 308, 302, 303, 307]:
+		extra_keys['Location'] = dest
+	return ({'status_code':use_code, 'url':'redirect.html', 'extra_header_keys':extra_keys}, generate_redirect_page(dest))
+
 ALL_LOGGER_NAMES = []
 CURRENT_LOGLEVEL = logging.NOTSET
 

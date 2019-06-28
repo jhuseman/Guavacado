@@ -22,7 +22,7 @@ class WebInterface(object):
 			self.host = host
 		
 		self.resource_dict = {}
-		self.host.get_web_dispatcher().add_resource_handler(self.identify_request, self.handle_request, 'WebInterface', level=dispatcher_level)
+		self.host.get_specialized_dispatcher('web').add_resource_handler(self.identify_request, self.handle_request, 'WebInterface', level=dispatcher_level)
 
 		# # add lines like the following:
 		# self.connect('/test/:id','GET_ID','GET')

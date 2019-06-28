@@ -3,6 +3,7 @@
 import socket
 import ssl
 import threading
+import traceback
 
 from .misc import init_logger, addr_rep
 
@@ -130,6 +131,7 @@ class ConnListener(object):
 					self.spawn_client_thread(clientsocket, address)
 			except OSError:
 				self.log_handler.error("An error was encountered trying to accept a new socket connection!")
+				# self.log_handler.error(traceback.format_exc())
 	
 	def stop(self):
 		'''stop accepting connections and shut down all sockets'''

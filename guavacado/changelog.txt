@@ -47,8 +47,11 @@ made by Joshua Huseman, jhuseman@alumni.nd.edu
 						re-implemented file hosting functionality (missing in version 1.9.6) in WebFileInterface class
 						changed syntax (again) of specifying listening address
 							addresses should now be specified by calling WebHost.add_addr() for each address after instantiating WebHost
+06/27/2019 [1.9.8] - 	implemented RedirectDispatcher class to redirect all traffic to a different protocol and domain name (primarily to redirect HTTP to HTTPS traffic)
+						added tls_keygen.sh to create a self-signed certificate for a secure TLS connection
+						added redirect from HTTP to HTTPS on the default setup created my __main__.py
+						created http_status_codes.py taking data from https://en.wikipedia.org/wiki/List_of_HTTP_status_codes for a more complete list of string identifiers for HTTP status codes
+						improved redirect page to send a HTTP redirect status code for faster redirection (instead of HTTP or JavaScript redirection)
 						TODO: test with external libraries (rather than just default setup from __main__.py)
-						TODO: test TLS/HTTPS
-						TODO: implement easy functionality to instantly redirect a HTTP connection to HTTPS page
-							TODO: consider allowing connecting a function to serve all requests (or subdir of one path) in a WebInterface (called like WebDispatcher.request_handler)
+						TODO: test TLS/HTTPS with public server
 						TODO: add icon to docs or directory listing page (and maybe 404/500?)

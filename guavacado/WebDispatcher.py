@@ -3,7 +3,7 @@
 from .version_number import guavacado_version
 WebServerNameAndVer = "Guavacado/"+guavacado_version
 
-from .misc import generate_redirect_page, init_logger, addr_rep
+from .misc import init_logger, addr_rep
 from .ConnListener import ConnListener
 from .WebRequestHandler import WebRequestHandler
 

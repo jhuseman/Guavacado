@@ -34,7 +34,7 @@ class WebFileInterface(object):
 		self.include_fp = include_fp
 		self.exclude_fp = exclude_fp
 		self.method_actions = {}
-		self.host.get_web_dispatcher().add_resource_handler(self.identify_request, self.handle_request, 'WebFileInterface', level=dispatcher_level)
+		self.host.get_specialized_dispatcher('web').add_resource_handler(self.identify_request, self.handle_request, 'WebFileInterface', level=dispatcher_level)
 
 		self.register_method_action('GET', self.identify_GET_request)
 	

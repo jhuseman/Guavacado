@@ -3,6 +3,7 @@
 from .WebDocs import WebDocs
 from .WebFileInterface import WebFileInterface
 from .WebDispatcher import WebDispatcher
+from .RedirectDispatcher import RedirectDispatcher
 from .ConnDispatcher import ConnDispatcher
 from .misc import init_logger, set_loglevel, addr_rep
 
@@ -15,13 +16,15 @@ class WebHost(object):
 		set_loglevel(loglevel)
 		self.log_handler = init_logger(__name__)
 		self.addr=[]
-		self.web_dispatcher = WebDispatcher(addr=self.addr, timeout=timeout, error_404_page_func=error_404_page_func)
+		self.timeout = timeout
+		self.error_404_page_func = error_404_page_func
+		self.specialized_dispatchers = {}
 		self.dispatcher = ConnDispatcher()
 		self.docs = WebDocs(self)
 		self.docs.connect_funcs()
 		self.web_file_interface = WebFileInterface(host=self, addr=self.addr, staticdir=staticdir, staticindex=staticindex,include_fp=include_fp,exclude_fp=exclude_fp)
 
-	def add_addr(self, addr=None, port=80, TLS=None):
+	def add_addr(self, addr=None, port=80, TLS=None, disp_type='web'):
 		'''
 		adds an address to the dispatcher for it to listen on
 		addr should be a hostname to listen on, or None to listen on all addresses
@@ -30,7 +33,7 @@ class WebHost(object):
 		'''
 		addr_tuple = ((addr,port),TLS)
 		self.addr.append(addr_tuple)
-		self.dispatcher.add_conn_listener(addr_tuple, self.web_dispatcher.handle_connection, name='WebDispatch_'+addr_rep(addr_tuple))
+		self.dispatcher.add_conn_listener(addr_tuple, self.get_specialized_dispatcher(disp_type).handle_connection, name='WebDispatch_'+addr_rep(addr_tuple))
 
 	def start_service(self):
 		if len(self.addr)==0:
@@ -47,9 +50,32 @@ class WebHost(object):
 
 	def get_dispatcher(self):
 		return self.dispatcher
-
-	def get_web_dispatcher(self):
-		return self.web_dispatcher
+	
+	def get_specialized_dispatcher(self, disp_type):
+		def setup_web_dispatcher():
+			return WebDispatcher(addr=self.addr, timeout=self.timeout, error_404_page_func=self.error_404_page_func)
+		def setup_redirect_dispatcher(target_domain):
+			return RedirectDispatcher(timeout=self.timeout, target_domain=target_domain)
+		dispatcher_setup_funcs = {
+			'web':setup_web_dispatcher,
+			'redirect':setup_redirect_dispatcher,
+		}
+		
+		if disp_type in self.specialized_dispatchers:
+			return self.specialized_dispatchers[disp_type]
+		else:
+			if type(disp_type) in [tuple, list] and type(disp_type[0]) in [str]:
+				disp_type_string = disp_type[0]
+				disp_args = disp_type[1:]
+			else:
+				disp_type_string = disp_type
+				disp_args = ()
+			if disp_type_string in dispatcher_setup_funcs:
+				disp = dispatcher_setup_funcs[disp_type_string](*disp_args)
+				self.specialized_dispatchers[disp_type] = disp
+				return disp
+			else:
+				raise NotImplementedError('Dispatcher type "{}" is not implemented!'.format(disp_type))
 
 	def get_docs(self):
 		return self.docs
