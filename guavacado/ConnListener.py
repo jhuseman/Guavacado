@@ -18,16 +18,29 @@ class ConnListener(object):
 		if addr is None:
 			self.addr = ('',80)
 			self.tls = None
-		elif addr[0] is None:
-			self.addr = ('',80)
-			self.tls = addr[1]
-		else:
-			if addr[0][0] is None:
-				self.addr = ('',addr[0][1])
+			self.udp = False
+		elif isinstance(addr, tuple):
+			if addr[0] is None:
+				self.addr = ('',80)
 				self.tls = addr[1]
+				self.udp = False
 			else:
-				self.addr = addr[0]
-				self.tls = addr[1]
+				if addr[0][0] is None:
+					self.addr = ('',addr[0][1])
+					self.tls = addr[1]
+					self.udp = False
+				else:
+					self.addr = addr[0]
+					self.tls = addr[1]
+					self.udp = False
+		else:
+			ip = addr.get('addr')
+			port = addr.get('port')
+			if ip is None:
+				ip = ''
+			self.addr = (ip, port)
+			self.tls = addr.get('TLS')
+			self.udp = addr.get('UDP',False)
 		if self.tls is None:
 			self.use_tls = False
 		else:
@@ -42,12 +55,17 @@ class ConnListener(object):
 	def create_server_socket(self):
 		'''creates a socket object listening for connections and saves it to the variable self.sock'''
 		self.log_handler.debug('Starting listening on {addr} for connections.'.format(addr=addr_rep(self.addr)))
-		# create an INET, STREAMing (TCP) socket
-		self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		if not self.udp:
+			# create an INET, STREAMing (TCP) socket
+			self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		else:
+			# create an INET, DATAGRAM (UDP) socket
+			self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 		# bind the socket to a public host, and a well-known port
 		self.sock.bind(self.addr)
-		# become a server socket
-		self.sock.listen(5) # 5 is the number of queued connections to allow before refusing connections from new clients - 5 is typically the maximum for the OS
+		if not self.udp:
+			# become a server socket
+			self.sock.listen(5) # 5 is the number of queued connections to allow before refusing connections from new clients - 5 is typically the maximum for the OS
 		if self.use_tls:
 			self.tls_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
 			self.tls_context.load_cert_chain(certfile=self.tls[0], keyfile=self.tls[1])
@@ -75,7 +93,7 @@ class ConnListener(object):
 			if client_id in self.active_client_ids:
 				self.active_client_ids.remove(client_id)
 
-	def spawn_client_thread(self, clientsocket, address):
+	def spawn_client_thread(self, clientsocket, address, sync=False):
 		'''
 		spawn a thread to handle the client socket
 		keep track of the client thread and socket in a dictionary to be used for shutdown
@@ -93,13 +111,17 @@ class ConnListener(object):
 			'address':address,
 			'thread':client_thread,
 		}
-		client_thread.start()
-		self.log_handler.debug('Thread number {ident} started for connection id {id}'.format(ident=client_thread.ident,id=client_id))
+		if not sync:
+			client_thread.start()
+			self.log_handler.debug('Thread number {ident} started for connection id {id}'.format(ident=client_thread.ident,id=client_id))
+		else:
+			self.log_handler.debug('Running connection id {id} synchronously'.format(id=client_id))
+			client_thread.run()
 	
 	def handle_client(self, clientsocket, address, client_id):
 		'''
 		handle the connection to the client
-		should be running in separate thread
+		should be running in separate thread (unless synchronous)
 		'''
 		self.conn_callback(clientsocket, address, client_id)
 		try:
@@ -118,20 +140,36 @@ class ConnListener(object):
 	def run(self):
 		'''accept connections from clients and spawn threads for them'''
 		self.log_handler.debug('Starting accepting connections on {addr}'.format(addr=addr_rep(self.addr)))
+		if self.use_tls:
+			# wrap listening socket in TLS context
+			self.raw_socket = self.sock
+			self.sock = self.tls_context.wrap_socket(self.raw_socket, server_side=True)
 		while not self.stop_event.is_set():
 			# accept connections from outside
 			try:
-				(clientsocket, address) = self.sock.accept()
-				if self.use_tls:
-					# for HTTPS, wrap socket in a TLS socket
-					raw_socket = clientsocket
-					clientsocket = self.tls_context.wrap_socket(raw_socket, server_side=True)
+				if not self.udp:
+					(clientsocket, address) = self.sock.accept()
+				else:
+					clientsocket = self.sock
+					address = None
 				if not self.stop_event.is_set():
-					# spawn thread using the new socket
-					self.spawn_client_thread(clientsocket, address)
+					if not self.udp:
+						# spawn thread using the new socket
+						self.spawn_client_thread(clientsocket, address)
+					else:
+						# run synchronously using the new socket
+						self.spawn_client_thread(clientsocket, address, sync=True)
+						self.stop_event.set()
+			except ssl.SSLError as e:
+				if e.reason in ['SSLV3_ALERT_CERTIFICATE_UNKNOWN', 'TLSV1_ALERT_UNKNOWN_CA']:
+					self.log_handler.warn("The incoming client refused to connect due to an invalid certificate!")
+				else:
+					self.log_handler.error("An error was encountered trying to set up a TLS connection!")
+					self.log_handler.error(traceback.format_exc())
 			except OSError:
-				self.log_handler.error("An error was encountered trying to accept a new socket connection!")
-				# self.log_handler.error(traceback.format_exc())
+				if not self.stop_event.is_set():
+					self.log_handler.error("An error was encountered trying to accept a new socket connection!")
+					self.log_handler.error(traceback.format_exc())
 	
 	def stop(self):
 		'''stop accepting connections and shut down all sockets'''
@@ -139,9 +177,10 @@ class ConnListener(object):
 		self.stop_event.set()
 		# connect as fake client to stop the looping thread
 		s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		s.connect(('localhost', self.addr[1]))
-		s.shutdown(socket.SHUT_RDWR)
-		s.close()
+		if not self.udp:
+			s.connect(('localhost', self.addr[1]))
+			s.shutdown(socket.SHUT_RDWR)
+			s.close()
 		try:
 			# self.sock.shutdown(socket.SHUT_RDWR)
 			self.sock.close()
@@ -153,10 +192,17 @@ class ConnListener(object):
 			if client_id in self.client_info:
 				client_dat = self.client_info[client_id]
 				self.log_handler.debug('{addr} [id {id}] Stopping connection'.format(addr=addr_rep(client_dat['address']),id=client_id))
-				client_dat['socket'].shutdown(socket.SHUT_RDWR)
-				client_dat['socket'].close()
+				try:
+					client_dat['socket'].shutdown(socket.SHUT_RDWR)
+				except OSError:
+					pass
+				try:
+					client_dat['socket'].close()
+				except OSError:
+					pass
 				self.log_handler.debug('Waiting for thread id {ident} to close'.format(ident=client_dat['thread'].ident))
-				client_dat['thread'].join(timeout=5)
+				if client_dat['thread'].is_alive():
+					client_dat['thread'].join(timeout=5)
 				if client_dat['thread'].is_alive():
 					self.log_handler.warn('Thread id {ident} ({addr} [id {id}]) did not close after 5 seconds! Continuing anyways...'.format(ident=client_dat['thread'].ident,addr=addr_rep(client_dat['address']),id=client_id))
 		self.log_handler.debug('All client socket connections stopped.')

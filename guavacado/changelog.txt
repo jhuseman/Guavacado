@@ -52,6 +52,34 @@ made by Joshua Huseman, jhuseman@alumni.nd.edu
 						added redirect from HTTP to HTTPS on the default setup created my __main__.py
 						created http_status_codes.py taking data from https://en.wikipedia.org/wiki/List_of_HTTP_status_codes for a more complete list of string identifiers for HTTP status codes
 						improved redirect page to send a HTTP redirect status code for faster redirection (instead of HTTP or JavaScript redirection)
-						TODO: test with external libraries (rather than just default setup from __main__.py)
+07/25/2019 [1.9.9] - 	implemented RawSocketDispatcher class to simply call a callback function on every connection with the socket instance
+							to implement this, call WebHost.add_addr(port=999, disp_type=('raw_socket', callback))
+							the callback function will be called with the arguments: callback(socket, address, client_id) to handle the connection
+							this could previously be done with a direct instantiation of the ConnListener class, but this change allows all interfaces to be accessed through the WebHost, WebInterface, and WebFileInterface classes
+						added UDP (datagram) functionality
+							to use UDP, use the UDP=True argument to WebHost.add_addr()
+							this will not work properly with the default 'web' disp_type, as it does not permit multiple discrete connections. Instead, use the 'raw_socket' disp_type.
+						added optional argument to WebDispatcher setup function inside of WebHost, allowing a special identifier to be specified when adding the address to isolate multiple WebInterfaces from one another
+							This can be done with the following code:
+								host = WebHost()
+								host.add_addr(port=80, disp_type=('web', 'web_80'))
+								interface_80 = WebInterface(host=web_host, web_dispatcher_ident='web_80')
+								host.add_addr(port=88, disp_type=('web', 'web_88'))
+								interface_88 = WebInterface(host=web_host, web_dispatcher_ident='web_88')
+							After running this code, requests to port 80 would be served by interface_80, while requests to port 88 would be served by interface_88
+						removed automatic instantiation of WebFileInterface in WebHost.  Now requires explicit instantiation of WebFileInterface to serve files (allows REST APIs without file hosting)
+						implemented HEAD request functionality in WebFileInterface
+						cleaned up __init__.py to remove unnecessary public API components that have no use as parts of the public API
+						modified WebDocs class to use a discrete instance of WebInterface, instead of using inheritance - following my own guidelines
+						added Client class for connection to a guavacado server, or any other web server
+						added test cases to test proper functionality of client and server
 						TODO: test TLS/HTTPS with public server
 						TODO: add icon to docs or directory listing page (and maybe 404/500?)
+						TODO: clean up imports on recently changed files
+						TODO: update docstring on recently changed files
+						TODO: change implementation of logging to use a log environment class, instead of global variables
+						TODO: add command-line arguments to __main__.py to allow specification of what to run by default
+
+						TODO: add functionality to Client to wrap a REST API into a single class (where member function calls make a request and return the body of the request)
+						TODO: add class name of resources to docs pages for the REST API and allow client wrapper class to restrict connection to a single class
+						TODO: allow exposing an entire class as a REST API with a single function call (ignoring "private" methods starting with an underscore)

@@ -27,6 +27,7 @@ def generate_redirect_page(dest):
 	""".format(dest=dest)
 
 def generate_redirect_page_w_statuscode(dest, use_code=301):
+	'''returns a redirect page, using the specified status code to potentially redirect the page faster'''
 	extra_keys = {}
 	if use_code in [301, 308, 302, 303, 307]:
 		extra_keys['Location'] = dest
@@ -70,12 +71,18 @@ def init_logger(name):
 	return logger
 
 def addr_rep(addr, pretty=False):
+	'''
+	return a representation of the given address tuple
+	if the optional argument pretty=True is specified, presents the address in a way that can be 
+	'''
 	def tls_rep(addr):
 		if addr is None:
 			return 'disabled'
 		if type(addr) in [tuple]:
 			return 'cert:{cert},key:{key}'.format(cert=addr[0],key=addr[1])
-	if type(addr) in [list]:
+	if addr is None:
+		return '[None]'
+	elif type(addr) in [list]:
 		if len(addr)==1:
 			return addr_rep(addr[0])
 		else:
@@ -102,6 +109,33 @@ def addr_rep(addr, pretty=False):
 				return '{ip} port {port}'.format(ip=addr[0], port=addr[1])
 			else:
 				return '{ip}:{port}'.format(ip=addr[0], port=addr[1])
+	elif type(addr) in [dict]:
+		ip = addr.get('addr')
+		port = addr.get('port')
+		TLS = addr.get('TLS')
+		UDP = addr.get('UDP')
+		addr_copy = addr.copy()
+		if ip is None:
+			addr_copy.update({'addr':''})
+			return addr_rep(addr_copy, pretty=pretty)
+		else:
+			if not TLS is None:
+				addr_copy.update({'TLS':None})
+				if pretty:
+					return '{addr} (https)'.format(addr=addr_rep(addr_copy,pretty=True))
+				else:
+					return '{addr}(tls:[{tls}])'.format(addr=addr_rep(addr_copy),tls=tls_rep(TLS))
+			elif (not UDP is None) and UDP:
+				addr_copy.update({'UDP':None})
+				if pretty:
+					return '{addr} (UDP)'.format(addr=addr_rep(addr_copy,pretty=True))
+				else:
+					return '{addr}(UDP)'.format(addr=addr_rep(addr_copy))
+			else:
+				if pretty:
+					return '{ip} port {port}'.format(ip=ip, port=port)
+				else:
+					return '{ip}:{port}'.format(ip=ip, port=port)
 	else:
 		if pretty:
 			return ''

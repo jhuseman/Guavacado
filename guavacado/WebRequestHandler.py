@@ -33,23 +33,34 @@ class IncorrectRequestSyntax(WebRequestHandlingException):
 class WebRequestHandler(object):
 	'''handles requests by identifying function based on the URL, then dispatching the request to the appropriate function'''
 	#TODO: figure out if host=None works from external to network
-	def __init__(self, clientsocket, address, client_id, request_handler, timeout=None):
+	def __init__(self, clientsocket, address, client_id, request_handler, timeout=None, is_client=False, client_resource=None, client_body=None, client_method=None, client_host=None):
 		self.log_handler = init_logger(__name__)
 		self.clientsocket = clientsocket
 		self.address = address
 		self.client_id = client_id
 		self.request_handler = request_handler
+		self.is_client = is_client
+		self.client_resource = client_resource
+		self.client_body = client_body
+		self.client_method = client_method
+		self.client_host = client_host
 		self.clientsocket.settimeout(timeout)
 
 		self.is_recieved = False
 		self.buf = b''
 	
 	def handle_connection(self):
-		self.recv_request()
-		if self.is_recieved:
-			self.send_response()
+		if not self.is_client:
+			self.recv()
+			if self.is_recieved:
+				self.send()
+		else:
+			self.send()
+			self.recv()
+			if self.is_recieved:
+				self.request_handler(self.body, self.code)
 
-	def recv_request(self):
+	def recv(self):
 		try:
 			self.req = self.recv_until()
 			if self.req is None:
@@ -58,15 +69,22 @@ class WebRequestHandler(object):
 			if self.head is None:
 				raise IncompleteRequestHeader()
 			self.headers = parse_headers(self.head.decode('utf-8'))
-			self.content_length_str = self.headers.get(b'Content-Length',b'0')
+			self.content_length_str = self.headers.get('Content-Length','0')
 			self.content_length = int(self.content_length_str)
-			self.body = self.recv_bytes(self.content_length).decode('utf-8')
-			req_parts = self.req.replace(b'\r\n',b'').split(None,2)
-			if len(req_parts) < 2:
-				raise IncorrectRequestSyntax()
-			self.method_bytes, self.url_bytes = req_parts[:2]
-			self.method = self.method_bytes.decode('utf-8')
-			self.url = self.url_bytes.decode('utf-8')
+			self.body = self.recv_bytes(self.content_length)
+			if not self.is_client:
+				req_parts = self.req.replace(b'\r\n',b'').split(None,2)
+				if len(req_parts) < 2:
+					raise IncorrectRequestSyntax()
+				self.method_bytes, self.url_bytes = req_parts[:2]
+				self.method = self.method_bytes.decode('utf-8')
+				self.url = self.url_bytes.decode('utf-8')
+			else:
+				req_parts = self.req.replace(b'\r\n',b'').split(None,2)
+				self.protocol_bytes, self.code_bytes, self.desc_bytes = req_parts[:3]
+				self.protocol = self.protocol_bytes.decode('utf-8')
+				self.code = int(self.code_bytes.decode('utf-8'))
+				self.desc = self.desc_bytes.decode('utf-8')
 			self.is_recieved = True
 		except RequestTimedOut:
 			self.log_handler.info('{addr} [id {id}] Request timed out!'.format(addr=addr_rep(self.address), id=self.client_id))
@@ -77,31 +95,51 @@ class WebRequestHandler(object):
 		except:
 			self.log_handler.error('{addr} [id {id}] An Error was encountered while receiving the request!'.format(addr=addr_rep(self.address), id=self.client_id))
 
-	def send_response(self):
-		try:
-			self.log_handler.info('{addr} [id {id}] Handling request: {method} {url} [body len {blen}]'.format(addr=addr_rep(self.address), id=self.client_id, method=self.method, url=self.url, blen=len(self.body)))
-			ret_data = self.request_handler(url=self.url, method=self.method, headers=self.headers, body=self.body)
-			if ret_data is None:
-				self.send_header_as_code(status_code=404, url='404.html')
-				self.clientsocket.sendall(self.get_404_page().encode('utf-8'))
-			elif type(ret_data) in [tuple, list] and len(ret_data)>=2:
-				header_data = {'url':self.url}
-				header_data.update(ret_data[0])
-				ret_buf = ret_data[1]
-				self.send_header_as_code(**header_data)
-				if not ret_buf is None:
-					self.clientsocket.sendall(ret_buf.encode('utf-8'))
-			else:
-				self.send_header_as_code()
-				self.clientsocket.sendall(ret_data.encode('utf-8'))
-		except:
-			self.log_handler.warn('{addr} [id {id}] An Error was encountered while handling the request!'.format(addr=addr_rep(self.address), id=self.client_id))
-			tb = traceback.format_exc()
+	def send(self):
+		if not self.is_client:
 			try:
-				self.send_header_as_code(status_code=500, url='500.html')
-				self.clientsocket.sendall(self.get_500_page(tb=tb).encode('utf-8'))
+				self.log_handler.info('{addr} [id {id}] Handling request: {method} {url} [body len {blen}]'.format(addr=addr_rep(self.address), id=self.client_id, method=self.method, url=self.url, blen=len(self.body)))
+				ret_data = self.request_handler(url=self.url, method=self.method, headers=self.headers, body=self.body)
+				if ret_data is None:
+					ret_buf = self.get_404_page().encode('utf-8')
+					self.send_header_as_code(status_code=404, url='404.html', content_length=len(ret_buf))
+					self.clientsocket.sendall(ret_buf)
+				elif type(ret_data) in [tuple, list] and len(ret_data)>=2:
+					if isinstance(ret_data[1], bytes):
+						ret_buf = ret_data[1]
+					else:
+						ret_buf = ret_data[1].encode('utf-8')
+					header_data = {'url':self.url}
+					if not ret_buf is None:
+						header_data['content_length'] = len(ret_buf)
+					header_data.update(ret_data[0])
+					self.send_header_as_code(**header_data)
+					if not ret_buf is None:
+						self.clientsocket.sendall(ret_buf)
+				else:
+					if isinstance(ret_data, bytes):
+						ret_buf = ret_data
+					else:
+						ret_buf = ret_data.encode('utf-8')
+					self.send_header_as_code(content_length=len(ret_buf))
+					self.clientsocket.sendall(ret_buf)
 			except:
-				self.log_handler.error('{addr} [id {id}] An Error was encountered while attempting to send a 500 Error response!'.format(addr=addr_rep(self.address), id=self.client_id))
+				self.log_handler.warn('{addr} [id {id}] An Error was encountered while handling the request!'.format(addr=addr_rep(self.address), id=self.client_id))
+				tb = traceback.format_exc()
+				try:
+					ret_buf = self.get_500_page(tb=tb).encode('utf-8')
+					self.send_header_as_code(status_code=500, url='500.html', content_length=len(ret_buf))
+					self.clientsocket.sendall(ret_buf)
+				except:
+					self.log_handler.error('{addr} [id {id}] An Error was encountered while attempting to send a 500 Error response!'.format(addr=addr_rep(self.address), id=self.client_id))
+		else:
+			self.clientsocket.sendall('{method} {resource} HTTP/1.1\r\n'.format(method=self.client_method, resource=self.client_resource).encode('utf-8'))
+			self.clientsocket.sendall('Host: {host}\r\n'.format(host=self.client_host).encode('utf-8'))
+			if not (self.client_body is None or len(self.client_body)==0):
+				self.clientsocket.sendall('Content-Length: {length}\r\n'.format(length=len(self.client_body)).encode('utf-8'))
+			self.clientsocket.sendall('\r\n'.encode('utf-8'))
+			if not (self.client_body is None or len(self.client_body)==0):
+				self.clientsocket.sendall(self.client_body)
 		
 	def recv_until(self, terminator=b'\r\n', recv_size=128):
 		try:
@@ -116,7 +154,7 @@ class WebRequestHandler(object):
 		self.buf = rem
 		return ret+terminator
 	
-	def recv_bytes(self, num_bytes, buf=b''):
+	def recv_bytes(self, num_bytes):
 		try:
 			while len(self.buf) < num_bytes:
 				recv_size = num_bytes-len(self.buf)
@@ -131,7 +169,7 @@ class WebRequestHandler(object):
 		self.buf = self.buf[num_bytes:]
 		return ret
 	
-	def send_header_as_code(self, status_code=200, url=None, extra_header_keys={}):
+	def send_header_as_code(self, status_code=200, url=None, content_length=None, extra_header_keys={}):
 		"""send the header of the response with the given status code"""
 		if url is None:
 			url = self.url
@@ -142,12 +180,14 @@ class WebRequestHandler(object):
 		if mime_type is None:
 			mime_type = "text/html"
 		header_keys = {'Content-type':mime_type}
+		if not content_length is None:
+			header_keys['Content-Length'] = content_length
 		header_keys.update(extra_header_keys)
 		self.clientsocket.sendall('HTTP/1.1 {code} {desc}\r\n'.format(code=status_code, desc=http_status_codes[status_code]).encode('utf-8'))
 		for key in header_keys:
 			val = header_keys[key]
 			self.clientsocket.sendall('{key}: {val}\r\n'.format(key=key, val=val).encode('utf-8'))
-		self.clientsocket.sendall(b'\r\n\r\n')
+		self.clientsocket.sendall(b'\r\n')
 	
 	def get_404_page(self):
 		return ('<head><title>Error 404: Not Found</title></head>'+ \

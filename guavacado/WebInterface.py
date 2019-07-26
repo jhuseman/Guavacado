@@ -12,17 +12,25 @@ class WebInterface(object):
 	See implementation of __init__ class for an example initialization.
 	"""
 
-	def __init__(self, host=None, host_kwargs={}, host_addr_kwargs={}, dispatcher_level=None):
+	def __init__(self, host=None, host_kwargs={}, host_addr_kwargs={}, web_dispatcher_ident=None, dispatcher_level=None):
+		if web_dispatcher_ident is None:
+			disp_type = 'web'
+		else:
+			disp_type = ('web',web_dispatcher_ident)
+
 		# starts a WebHost on port 80 that
 		if host is None:
 			from guavacado import WebHost
 			self.host = WebHost(**host_kwargs)
-			self.host.add_addr(**host_addr_kwargs)
+			host_addr_kwargs_add = host_addr_kwargs
+			if not web_dispatcher_ident is None:
+				host_addr_kwargs_add.update({'disp_type': disp_type})
+			self.host.add_addr(**host_addr_kwargs_add)
 		else:
 			self.host = host
 		
 		self.resource_dict = {}
-		self.host.get_specialized_dispatcher('web').add_resource_handler(self.identify_request, self.handle_request, 'WebInterface', level=dispatcher_level)
+		self.host.get_specialized_dispatcher(disp_type).add_resource_handler(self.identify_request, self.handle_request, 'WebInterface', level=dispatcher_level)
 
 		# # add lines like the following:
 		# self.connect('/test/:id','GET_ID','GET')

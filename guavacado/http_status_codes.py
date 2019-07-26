@@ -1,3 +1,4 @@
+# creates dictionary of http status numbers, indicating the name of the status code
 # status codes taken from https://en.wikipedia.org/wiki/List_of_HTTP_status_codes
 
 

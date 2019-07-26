@@ -19,24 +19,33 @@ class WebFileInterface(object):
 	See implementation of __init__ class for an example initialization.
 	"""
 
-	def __init__(self, host=None, host_kwargs={}, addr=None, dispatcher_level=None, staticdir="static", staticindex="index.html", include_fp=['{staticdir}/*'], exclude_fp=[]):
+	def __init__(self, host=None, host_kwargs={}, host_addr_kwargs={}, web_dispatcher_ident=None, dispatcher_level=None, staticdir="static", staticindex="index.html", include_fp=['{staticdir}/*'], exclude_fp=[]):
+		if web_dispatcher_ident is None:
+			disp_type = 'web'
+		else:
+			disp_type = ('web',web_dispatcher_ident)
+
 		# starts a WebHost on port 80 that
 		if host is None:
 			from guavacado import WebHost
 			self.host = WebHost(**host_kwargs)
+			host_addr_kwargs_add = host_addr_kwargs
+			if not web_dispatcher_ident is None:
+				host_addr_kwargs_add.update({'disp_type': disp_type})
+			self.host.add_addr(**host_addr_kwargs_add)
 		else:
 			self.host = host
 		
 		self.log_handler = init_logger(__name__)
-		self.addr = addr
 		self.staticdir = staticdir
 		self.staticindex = staticindex
 		self.include_fp = include_fp
 		self.exclude_fp = exclude_fp
 		self.method_actions = {}
-		self.host.get_specialized_dispatcher('web').add_resource_handler(self.identify_request, self.handle_request, 'WebFileInterface', level=dispatcher_level)
+		self.host.get_specialized_dispatcher(disp_type).add_resource_handler(self.identify_request, self.handle_request, 'WebFileInterface', level=dispatcher_level)
 
 		self.register_method_action('GET', self.identify_GET_request)
+		self.register_method_action('HEAD', self.identify_HEAD_request)
 	
 	def register_method_action(self, method, callback):
 		self.method_actions[method] = callback
@@ -67,6 +76,16 @@ class WebFileInterface(object):
 						return (self.get_dir_page, (path,))
 		return None
 	
+	def identify_HEAD_request(self, url, headers, body):
+		result = self.identify_GET_request(url, headers, body)
+		if result is None:
+			return None
+		else:
+			# callback, args = result
+			def get_empty_result():
+				return b''
+			return (get_empty_result, ())
+	
 	def handle_request(self, callback, args):
 		return callback(*args)
 
@@ -80,7 +99,7 @@ class WebFileInterface(object):
 		return False
 
 	def get_address_string(self):
-		return "{server} Server at {addr}".format(server=WebServerNameAndVer, addr=addr_rep(self.addr, pretty=True))
+		return "{server} Server at {addr}".format(server=WebServerNameAndVer, addr=addr_rep(self.host.get_addr(), pretty=True))
 	
 	def get_dir_page(self, path):
 		if path[-1]!='/':

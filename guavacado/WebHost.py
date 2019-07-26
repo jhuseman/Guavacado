@@ -2,17 +2,19 @@
 
 from .WebDocs import WebDocs
 from .WebFileInterface import WebFileInterface
-from .WebDispatcher import WebDispatcher
-from .RedirectDispatcher import RedirectDispatcher
 from .ConnDispatcher import ConnDispatcher
 from .misc import init_logger, set_loglevel, addr_rep
+
+from .WebDispatcher import WebDispatcher
+from .RedirectDispatcher import RedirectDispatcher
+from .RawSocketDispatcher import RawSocketDispatcher
 
 class WebHost(object):
 	'''
 		class for hosting a "/static" folder
 		allows WebInterface objects to serve dynamic content alongside the "/static" folder
 	'''
-	def __init__(self,timeout=10,loglevel='INFO',staticdir="static",staticindex="index.html",include_fp=['{staticdir}/*'],exclude_fp=[], error_404_page_func=None):
+	def __init__(self,timeout=10,loglevel='INFO', error_404_page_func=None):
 		set_loglevel(loglevel)
 		self.log_handler = init_logger(__name__)
 		self.addr=[]
@@ -22,9 +24,8 @@ class WebHost(object):
 		self.dispatcher = ConnDispatcher()
 		self.docs = WebDocs(self)
 		self.docs.connect_funcs()
-		self.web_file_interface = WebFileInterface(host=self, addr=self.addr, staticdir=staticdir, staticindex=staticindex,include_fp=include_fp,exclude_fp=exclude_fp)
 
-	def add_addr(self, addr=None, port=80, TLS=None, disp_type='web'):
+	def add_addr(self, addr=None, port=80, TLS=None, UDP=False, disp_type='web'):
 		'''
 		adds an address to the dispatcher for it to listen on
 		addr should be a hostname to listen on, or None to listen on all addresses
@@ -32,8 +33,9 @@ class WebHost(object):
 		TLS should be a tuple of two filenames to use for the certfile and keyfile for TLS, or None to use plain HTTP
 		'''
 		addr_tuple = ((addr,port),TLS)
-		self.addr.append(addr_tuple)
-		self.dispatcher.add_conn_listener(addr_tuple, self.get_specialized_dispatcher(disp_type).handle_connection, name='WebDispatch_'+addr_rep(addr_tuple))
+		addr_dict = {'addr':addr, 'port':port, 'TLS':TLS, 'UDP':UDP}
+		self.addr.append(addr_dict)
+		self.dispatcher.add_conn_listener(addr_dict, self.get_specialized_dispatcher(disp_type).handle_connection, name='WebDispatch_'+addr_rep(addr_dict))
 
 	def start_service(self):
 		if len(self.addr)==0:
@@ -52,13 +54,17 @@ class WebHost(object):
 		return self.dispatcher
 	
 	def get_specialized_dispatcher(self, disp_type):
-		def setup_web_dispatcher():
+		def setup_web_dispatcher(ident=None):
+			# ident argument is so this can instantiate multiple WebDispatcher instances by specifying this parameter
 			return WebDispatcher(addr=self.addr, timeout=self.timeout, error_404_page_func=self.error_404_page_func)
 		def setup_redirect_dispatcher(target_domain):
 			return RedirectDispatcher(timeout=self.timeout, target_domain=target_domain)
+		def setup_raw_socket_dispatcher(callback):
+			return RawSocketDispatcher(callback)
 		dispatcher_setup_funcs = {
 			'web':setup_web_dispatcher,
 			'redirect':setup_redirect_dispatcher,
+			'raw_socket':setup_raw_socket_dispatcher,
 		}
 		
 		if disp_type in self.specialized_dispatchers:
@@ -79,3 +85,6 @@ class WebHost(object):
 
 	def get_docs(self):
 		return self.docs
+	
+	def get_addr(self):
+		return self.addr

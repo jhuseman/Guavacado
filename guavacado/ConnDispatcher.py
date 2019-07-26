@@ -1,19 +1,13 @@
 #! /usr/bin/env python
 
-from .version_number import guavacado_version
-WebServerNameAndVer = "Guavacado/"+guavacado_version
-
 from .misc import init_logger, addr_rep
 from .ConnListener import ConnListener
-from .WebRequestHandler import WebRequestHandler
 
-from datetime import datetime
 import os
 import threading
-import fnmatch
 
 class ConnDispatcher(object):
-	'''handles requests by identifying function based on the URL, then dispatching the request to the appropriate function'''
+	'''handles dispatching connections from multiple ConnListener instances to the proper callback functions'''
 	def __init__(self):
 		self.log_handler = init_logger(__name__)
 		self.conn_listeners = {}
