@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 
-from distutils.core import setup
+import setuptools
 from guavacado import version_number
 
-setup(name='guavacado',
+setuptools.setup(name='guavacado',
 	version=version_number.guavacado_version,
 	description='Simple Web API Hosting',
 	author='Joshua Huseman',
