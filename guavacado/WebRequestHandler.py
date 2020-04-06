@@ -33,7 +33,7 @@ class IncorrectRequestSyntax(WebRequestHandlingException):
 class WebRequestHandler(object):
 	'''handles requests by identifying function based on the URL, then dispatching the request to the appropriate function'''
 	#TODO: figure out if host=None works from external to network
-	def __init__(self, clientsocket, address, client_id, request_handler, timeout=None, is_client=False, client_resource=None, client_body=None, client_method=None, client_host=None):
+	def __init__(self, clientsocket, address, client_id, request_handler, timeout=None, is_client=False, client_resource=None, client_body=None, client_method=None, client_host=None, auth_handler=None):
 		self.log_handler = init_logger(__name__)
 		self.clientsocket = clientsocket
 		self.address = address
@@ -44,20 +44,21 @@ class WebRequestHandler(object):
 		self.client_body = client_body
 		self.client_method = client_method
 		self.client_host = client_host
+		self.auth_handler = auth_handler
 		self.clientsocket.settimeout(timeout)
 
-		self.is_recieved = False
+		self.is_received = False
 		self.buf = b''
 	
 	def handle_connection(self):
 		if not self.is_client:
 			self.recv()
-			if self.is_recieved:
+			if self.is_received:
 				self.send()
 		else:
 			self.send()
 			self.recv()
-			if self.is_recieved:
+			if self.is_received:
 				self.request_handler(self.body, self.code)
 
 	def recv(self):
@@ -85,7 +86,7 @@ class WebRequestHandler(object):
 				self.protocol = self.protocol_bytes.decode('utf-8')
 				self.code = int(self.code_bytes.decode('utf-8'))
 				self.desc = self.desc_bytes.decode('utf-8')
-			self.is_recieved = True
+			self.is_received = True
 		except RequestTimedOut:
 			self.log_handler.info('{addr} [id {id}] Request timed out!'.format(addr=addr_rep(self.address), id=self.client_id))
 		except IncompleteRequestHeader:
@@ -98,6 +99,19 @@ class WebRequestHandler(object):
 	def send(self):
 		if not self.is_client:
 			try:
+				if self.auth_handler != None:
+					auth_info = self.headers.get('Authorization',None)
+					if auth_info is None:
+						self.log_handler.info('{addr} [id {id}] 401 Unauthorized: {method} {url}'.format(addr=addr_rep(self.address), id=self.client_id, method=self.method, url=self.url))
+						self.send_header_as_code(status_code=401, url='401.html', extra_header_keys={'WWW-Authenticate': '{auth_type} realm="{realm}"'.format(auth_type=self.auth_handler.auth_type, realm=self.auth_handler.realm)})
+						return
+					auth_type, credentials = tuple(auth_info.split(' ', 1))
+					if not self.auth_handler.authenticate(auth_type, credentials):
+						self.log_handler.info('{addr} [id {id}] 403 Forbidden: {method} {url}'.format(addr=addr_rep(self.address), id=self.client_id, method=self.method, url=self.url))
+						ret_buf = self.get_403_page().encode('utf-8')
+						self.send_header_as_code(status_code=403, url='403.html', content_length=len(ret_buf))
+						self.clientsocket.sendall(ret_buf)
+						return
 				self.log_handler.info('{addr} [id {id}] Handling request: {method} {url} [body len {blen}]'.format(addr=addr_rep(self.address), id=self.client_id, method=self.method, url=self.url, blen=len(self.body)))
 				ret_data = self.request_handler(url=self.url, method=self.method, headers=self.headers, body=self.body)
 				if ret_data is None:
@@ -188,6 +202,11 @@ class WebRequestHandler(object):
 			val = header_keys[key]
 			self.clientsocket.sendall('{key}: {val}\r\n'.format(key=key, val=val).encode('utf-8'))
 		self.clientsocket.sendall(b'\r\n')
+	
+	def get_403_page(self):
+		return ('<head><title>Error 403: Forbidden</title></head>'+ \
+		'<body><h1>Error response</h1><p>Error code 403.<p>Message: The given credentials do not have access to the URI "{url}".'+ \
+		'<p>Error code explanation: 403 = The given credentials do not have access to the given URI.</body>').format(url=self.url)
 	
 	def get_404_page(self):
 		return ('<head><title>Error 404: Not Found</title></head>'+ \

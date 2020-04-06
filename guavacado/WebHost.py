@@ -32,7 +32,7 @@ class WebHost(object):
 		port should be a port number to listen on
 		TLS should be a tuple of two filenames to use for the certfile and keyfile for TLS, or None to use plain HTTP
 		'''
-		addr_tuple = ((addr,port),TLS)
+		# addr_tuple = ((addr,port),TLS)
 		addr_dict = {'addr':addr, 'port':port, 'TLS':TLS, 'UDP':UDP}
 		self.addr.append(addr_dict)
 		self.dispatcher.add_conn_listener(addr_dict, self.get_specialized_dispatcher(disp_type).handle_connection, name='WebDispatch_'+addr_rep(addr_dict))
@@ -54,9 +54,9 @@ class WebHost(object):
 		return self.dispatcher
 	
 	def get_specialized_dispatcher(self, disp_type):
-		def setup_web_dispatcher(ident=None):
+		def setup_web_dispatcher(ident=None, auth=None):
 			# ident argument is so this can instantiate multiple WebDispatcher instances by specifying this parameter
-			return WebDispatcher(addr=self.addr, timeout=self.timeout, error_404_page_func=self.error_404_page_func)
+			return WebDispatcher(addr=self.addr, timeout=self.timeout, error_404_page_func=self.error_404_page_func, auth_handler=auth)
 		def setup_redirect_dispatcher(target_domain):
 			return RedirectDispatcher(timeout=self.timeout, target_domain=target_domain)
 		def setup_raw_socket_dispatcher(callback):
@@ -67,8 +67,14 @@ class WebHost(object):
 			'raw_socket':setup_raw_socket_dispatcher,
 		}
 		
-		if disp_type in self.specialized_dispatchers:
-			return self.specialized_dispatchers[disp_type]
+		dict_key_ident = disp_type
+		if type(dict_key_ident) in [tuple, list] and type(disp_type[0]) in [str]:
+			if dict_key_ident[0]=='web':
+				if len(dict_key_ident)>2:
+					# remove the (non-hashable) auth information from the dictionary key
+					dict_key_ident = dict_key_ident[:2]
+		if dict_key_ident in self.specialized_dispatchers:
+			return self.specialized_dispatchers[dict_key_ident]
 		else:
 			if type(disp_type) in [tuple, list] and type(disp_type[0]) in [str]:
 				disp_type_string = disp_type[0]
@@ -78,7 +84,7 @@ class WebHost(object):
 				disp_args = ()
 			if disp_type_string in dispatcher_setup_funcs:
 				disp = dispatcher_setup_funcs[disp_type_string](*disp_args)
-				self.specialized_dispatchers[disp_type] = disp
+				self.specialized_dispatchers[dict_key_ident] = disp
 				return disp
 			else:
 				raise NotImplementedError('Dispatcher type "{}" is not implemented!'.format(disp_type))

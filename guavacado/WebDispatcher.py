@@ -14,15 +14,16 @@ import fnmatch
 
 class WebDispatcher(object):
 	'''handles requests by identifying function based on the URL, then dispatching the request to the appropriate function'''
-	def __init__(self, addr=None, timeout=None, error_404_page_func=None):
+	def __init__(self, addr=None, timeout=None, error_404_page_func=None, auth_handler=None):
 		self.log_handler = init_logger(__name__)
 		self.addr = addr
 		self.timeout = timeout
 		self.error_404_page_func = error_404_page_func
 		self.resource_handlers = []
+		self.auth_handler = auth_handler
 
 	def handle_connection(self, clientsocket, address, client_id):
-		handler = WebRequestHandler(clientsocket, address, client_id, self.request_handler, timeout=self.timeout)
+		handler = WebRequestHandler(clientsocket, address, client_id, self.request_handler, timeout=self.timeout, auth_handler=self.auth_handler)
 		handler.handle_connection()
 	
 	def get_resource_handler_index(self,name):
