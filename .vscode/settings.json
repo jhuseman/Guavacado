@@ -1,6 +1,5 @@
 {
 	"python.linting.pylintEnabled": true,
-	"python.pythonPath": "C:\\Users\\jdhus\\AppData\\Local\\Microsoft\\WindowsApps\\python.exe",
 	"python.testing.unittestArgs": [
 		"-v",
 		"-s",

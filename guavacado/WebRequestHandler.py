@@ -33,7 +33,7 @@ class IncorrectRequestSyntax(WebRequestHandlingException):
 class WebRequestHandler(object):
 	'''handles requests by identifying function based on the URL, then dispatching the request to the appropriate function'''
 	#TODO: figure out if host=None works from external to network
-	def __init__(self, clientsocket, address, client_id, request_handler, timeout=None, is_client=False, client_resource=None, client_body=None, client_method=None, client_host=None, auth_handler=None):
+	def __init__(self, clientsocket, address, client_id, request_handler, timeout=None, is_client=False, client_resource=None, client_body=None, client_method=None, client_host=None, auth_handler=None, add_headers={}):
 		self.log_handler = init_logger(__name__)
 		self.clientsocket = clientsocket
 		self.address = address
@@ -45,6 +45,7 @@ class WebRequestHandler(object):
 		self.client_method = client_method
 		self.client_host = client_host
 		self.auth_handler = auth_handler
+		self.add_headers = add_headers
 		self.clientsocket.settimeout(timeout)
 
 		self.is_received = False
@@ -72,7 +73,17 @@ class WebRequestHandler(object):
 			self.headers = parse_headers(self.head.decode('utf-8'))
 			self.content_length_str = self.headers.get('Content-Length','0')
 			self.content_length = int(self.content_length_str)
-			self.body = self.recv_bytes(self.content_length)
+			self.transfer_encoding = self.headers.get('Transfer-Encoding','')
+			if self.transfer_encoding=='chunked':
+				self.body = b''
+				chunk_len = 1
+				while chunk_len>0:
+					chunk_len = int(self.recv_until(terminator=b'\r\n').decode('utf-8'), 16)
+					self.content_length = self.content_length + chunk_len
+					self.body = self.body + self.recv_bytes(chunk_len)
+					self.recv_until(terminator=b'\r\n') # throw away the rest of the current line
+			else:
+				self.body = self.recv_bytes(self.content_length)
 			if not self.is_client:
 				req_parts = self.req.replace(b'\r\n',b'').split(None,2)
 				if len(req_parts) < 2:
@@ -149,6 +160,9 @@ class WebRequestHandler(object):
 		else:
 			self.clientsocket.sendall('{method} {resource} HTTP/1.1\r\n'.format(method=self.client_method, resource=self.client_resource).encode('utf-8'))
 			self.clientsocket.sendall('Host: {host}\r\n'.format(host=self.client_host).encode('utf-8'))
+			for key in self.add_headers:
+				val = self.add_headers[key]
+				self.clientsocket.sendall('{key}: {val}\r\n'.format(key=key, val=val).encode('utf-8'))
 			if not (self.client_body is None or len(self.client_body)==0):
 				self.clientsocket.sendall('Content-Length: {length}\r\n'.format(length=len(self.client_body)).encode('utf-8'))
 			self.clientsocket.sendall('\r\n'.encode('utf-8'))
@@ -197,6 +211,7 @@ class WebRequestHandler(object):
 		if not content_length is None:
 			header_keys['Content-Length'] = content_length
 		header_keys.update(extra_header_keys)
+		header_keys.update(self.add_headers)
 		self.clientsocket.sendall('HTTP/1.1 {code} {desc}\r\n'.format(code=status_code, desc=http_status_codes[status_code]).encode('utf-8'))
 		for key in header_keys:
 			val = header_keys[key]
