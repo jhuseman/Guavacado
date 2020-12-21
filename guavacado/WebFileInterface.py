@@ -68,7 +68,7 @@ class WebFileInterface(object):
 				if os.path.exists(path):
 					if os.path.isfile(path):
 						def read_file(path=path):
-							with open(path) as fp:
+							with open(path, 'rb') as fp:
 								data = fp.read()
 							return data
 						return (read_file, ())
