@@ -8,7 +8,15 @@ import traceback
 import socket
 
 def parse_headers(headers):
-	return dict([tuple(l.split(': ',1)) for l in headers.split('\r\n') if ': ' in l])
+	ret = {}
+	for t in [tuple(l.split(': ',1)) for l in headers.split('\r\n') if ': ' in l]:
+		# if cookie name is already used, append it with a comma as described in RFC 2616 section 4.2 - https://www.w3.org/Protocols/rfc2616/rfc2616-sec4.html#sec4.2
+		# this allows the multiple headers to be represented in a python dictionary without special cases of lists, and clients/servers following the spec should work with this rule
+		if t[0] in ret:
+			ret[t[0]] = ret[t[0]] + ',' + t[1]
+		else:
+			ret[t[0]] = t[1]
+	return dict()
 
 class WebRequestHandlingException(Exception):
 	'''base class for all exceptions related to web requests'''
