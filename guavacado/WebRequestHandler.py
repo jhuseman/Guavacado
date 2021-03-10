@@ -16,7 +16,7 @@ def parse_headers(headers):
 			ret[t[0]] = ret[t[0]] + ',' + t[1]
 		else:
 			ret[t[0]] = t[1]
-	return dict()
+	return ret
 
 class WebRequestHandlingException(Exception):
 	'''base class for all exceptions related to web requests'''
