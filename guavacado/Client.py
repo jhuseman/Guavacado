@@ -61,9 +61,9 @@ class Client(object):
 		return (Client(addr=host, port=port, TLS=TLS, disp_type='web', TLS_check_cert=TLS_check_cert), resource)
 	
 	@staticmethod
-	def request_url(url, method='GET', body=None, TLS_check_cert=True, include_response_headers=False, response_headers_as_lists=False, extra_headers={}):
+	def request_url(url, method='GET', body=None, TLS_check_cert=True, include_response_headers=False, response_headers_as_lists=False, follow_redir=False, redir_persist_cookies=True, cookie_store=None, extra_headers={}):
 		c, r = Client.from_url(url, TLS_check_cert=TLS_check_cert)
-		return c.request_web(resource=r, method=method, body=body, include_response_headers=include_response_headers, response_headers_as_lists=response_headers_as_lists, extra_headers=extra_headers)
+		return c.request_web(resource=r, method=method, body=body, include_response_headers=include_response_headers, response_headers_as_lists=response_headers_as_lists, follow_redir=follow_redir, redir_persist_cookies=redir_persist_cookies, cookie_store=cookie_store, extra_headers=extra_headers)
 	
 	def connect_socket(self):
 		'''creates a socket connection to the server'''
@@ -93,7 +93,7 @@ class Client(object):
 		sock.shutdown(socket.SHUT_RDWR)
 		sock.close()
 	
-	def request_web(self, resource='/', method='GET', body=None, include_response_headers=False, response_headers_as_lists=False, extra_headers={}):
+	def request_web(self, resource='/', method='GET', body=None, include_response_headers=False, response_headers_as_lists=False, follow_redir=False, redir_persist_cookies=True, cookie_store=None, extra_headers={}):
 		'''makes a web request and returns the body of the response'''
 		ret = []
 		ret_event = threading.Event()
@@ -103,11 +103,11 @@ class Client(object):
 			else:
 				ret.append((body, code))
 			ret_event.set()
-		self.request_web_async(req_callback, resource=resource, method=method, body=body, include_response_headers=True, response_headers_as_lists=response_headers_as_lists, extra_headers=extra_headers)
+		self.request_web_async(req_callback, resource=resource, method=method, body=body, include_response_headers=True, response_headers_as_lists=response_headers_as_lists, follow_redir=follow_redir, redir_persist_cookies=redir_persist_cookies, cookie_store=cookie_store, extra_headers=extra_headers)
 		ret_event.wait()
 		return ret[0]
 
-	def request_web_async(self, callback, resource='/', method='GET', body=None, include_response_headers=False, response_headers_as_lists=False, timeout=None, extra_headers={}):
+	def request_web_async(self, callback, resource='/', method='GET', body=None, include_response_headers=False, response_headers_as_lists=False, follow_redir=False, redir_persist_cookies=True, cookie_store=None, timeout=None, extra_headers={}):
 		'''makes a web request using the raw socket and returns the body of the response'''
 		sock = self.connect_socket()
 		# buf = b''
