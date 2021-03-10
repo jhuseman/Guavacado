@@ -63,7 +63,17 @@ class Client(object):
 	@staticmethod
 	def request_url(url, method='GET', body=None, TLS_check_cert=True, include_response_headers=False, response_headers_as_lists=False, follow_redir=False, redir_persist_cookies=True, cookie_store=None, extra_headers={}):
 		c, r = Client.from_url(url, TLS_check_cert=TLS_check_cert)
-		return c.request_web(resource=r, method=method, body=body, include_response_headers=include_response_headers, response_headers_as_lists=response_headers_as_lists, follow_redir=follow_redir, redir_persist_cookies=redir_persist_cookies, cookie_store=cookie_store, extra_headers=extra_headers)
+		return c.request_web(
+			resource=r, 
+			method=method, 
+			body=body, 
+			include_response_headers=include_response_headers, 
+			response_headers_as_lists=response_headers_as_lists, 
+			follow_redir=follow_redir, 
+			redir_persist_cookies=redir_persist_cookies, 
+			cookie_store=cookie_store, 
+			extra_headers=extra_headers
+		)
 	
 	def connect_socket(self):
 		'''creates a socket connection to the server'''
@@ -103,7 +113,18 @@ class Client(object):
 			else:
 				ret.append((body, code))
 			ret_event.set()
-		self.request_web_async(req_callback, resource=resource, method=method, body=body, include_response_headers=True, response_headers_as_lists=response_headers_as_lists, follow_redir=follow_redir, redir_persist_cookies=redir_persist_cookies, cookie_store=cookie_store, extra_headers=extra_headers)
+		self.request_web_async(
+			req_callback, 
+			resource=resource, 
+			method=method, 
+			body=body, 
+			include_response_headers=True, 
+			response_headers_as_lists=response_headers_as_lists, 
+			follow_redir=follow_redir, 
+			redir_persist_cookies=redir_persist_cookies, 
+			cookie_store=cookie_store, 
+			extra_headers=extra_headers
+		)
 		ret_event.wait()
 		return ret[0]
 
@@ -112,7 +133,21 @@ class Client(object):
 		sock = self.connect_socket()
 		# buf = b''
 
-		req_handler = WebRequestHandler(sock, (self.addr, self.port), None, callback, timeout=timeout, is_client=True, client_resource=resource, client_body=body, client_method=method, client_host=self.addr, client_include_response_headers=include_response_headers, client_headers_as_lists=response_headers_as_lists, add_headers=extra_headers)
+		req_handler = WebRequestHandler(
+			sock, 
+			(self.addr, self.port), 
+			None, 
+			callback, 
+			timeout=timeout, 
+			is_client=True, 
+			client_resource=resource, 
+			client_body=body, 
+			client_method=method, 
+			client_host=self.addr,
+			client_include_response_headers=include_response_headers, 
+			client_headers_as_lists=response_headers_as_lists, 
+			add_headers=extra_headers
+		)
 		req_handler.handle_connection()
 		# # # # #TODO: figure out code reuse strategy between here and WebRequestHandler
 		# # # # def recv_until(terminator=b'\r\n', recv_size=128, sock=sock, buf=buf):
