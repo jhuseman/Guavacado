@@ -7,15 +7,23 @@ import mimetypes
 import traceback
 import socket
 
-def parse_headers(headers):
+def parse_headers(headers, as_lists=False):
 	ret = {}
 	for t in [tuple(l.split(': ',1)) for l in headers.split('\r\n') if ': ' in l]:
 		# if cookie name is already used, append it with a comma as described in RFC 2616 section 4.2 - https://www.w3.org/Protocols/rfc2616/rfc2616-sec4.html#sec4.2
 		# this allows the multiple headers to be represented in a python dictionary without special cases of lists, and clients/servers following the spec should work with this rule
+
+		# if as_lists is True, instead use a python list to make it easier to use later
 		if t[0] in ret:
-			ret[t[0]] = ret[t[0]] + ',' + t[1]
+			if as_lists:
+				ret[t[0]].append(t[1])
+			else:
+				ret[t[0]] = ret[t[0]] + ',' + t[1]
 		else:
-			ret[t[0]] = t[1]
+			if as_lists:
+				ret[t[0]] = [t[1]]
+			else:
+				ret[t[0]] = t[1]
 	return ret
 
 class WebRequestHandlingException(Exception):
@@ -41,7 +49,7 @@ class IncorrectRequestSyntax(WebRequestHandlingException):
 class WebRequestHandler(object):
 	'''handles requests by identifying function based on the URL, then dispatching the request to the appropriate function'''
 	#TODO: figure out if host=None works from external to network
-	def __init__(self, clientsocket, address, client_id, request_handler, timeout=None, is_client=False, client_resource=None, client_body=None, client_method=None, client_host=None, client_include_response_headers=False, auth_handler=None, add_headers={}):
+	def __init__(self, clientsocket, address, client_id, request_handler, timeout=None, is_client=False, client_resource=None, client_body=None, client_method=None, client_host=None, client_include_response_headers=False, client_headers_as_lists=False, auth_handler=None, add_headers={}):
 		self.log_handler = init_logger(__name__)
 		self.clientsocket = clientsocket
 		self.address = address
@@ -53,6 +61,7 @@ class WebRequestHandler(object):
 		self.client_method = client_method
 		self.client_host = client_host
 		self.client_include_response_headers = client_include_response_headers
+		self.client_headers_as_lists = client_headers_as_lists
 		self.auth_handler = auth_handler
 		self.add_headers = add_headers
 		self.clientsocket.settimeout(timeout)
@@ -70,7 +79,10 @@ class WebRequestHandler(object):
 			self.recv()
 			if self.is_received:
 				if self.client_include_response_headers:
-					self.request_handler(self.body, self.code, self.headers)
+					if self.client_headers_as_lists:
+						self.request_handler(self.body, self.code, self.headers_lists)
+					else:
+						self.request_handler(self.body, self.code, self.headers)
 				else:
 					self.request_handler(self.body, self.code)
 
@@ -83,6 +95,8 @@ class WebRequestHandler(object):
 			if self.head is None:
 				raise IncompleteRequestHeader()
 			self.headers = parse_headers(self.head.decode('utf-8'))
+			if self.client_headers_as_lists:
+				self.headers_lists = parse_headers(self.head.decode('utf-8'), as_lists=True)
 			self.content_length_str = self.headers.get('Content-Length','0')
 			self.content_length = int(self.content_length_str)
 			self.transfer_encoding = self.headers.get('Transfer-Encoding','')
@@ -226,8 +240,11 @@ class WebRequestHandler(object):
 		header_keys.update(self.add_headers)
 		self.clientsocket.sendall('HTTP/1.1 {code} {desc}\r\n'.format(code=status_code, desc=http_status_codes[status_code]).encode('utf-8'))
 		for key in header_keys:
-			val = header_keys[key]
-			self.clientsocket.sendall('{key}: {val}\r\n'.format(key=key, val=val).encode('utf-8'))
+			vals = header_keys[key]
+			if not isinstance(vals, list):
+				vals = [vals]
+			for val in vals:
+				self.clientsocket.sendall('{key}: {val}\r\n'.format(key=key, val=val).encode('utf-8'))
 		self.clientsocket.sendall(b'\r\n')
 	
 	def get_403_page(self):
