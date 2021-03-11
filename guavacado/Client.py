@@ -3,9 +3,11 @@
 import socket
 import ssl
 import threading
+from datetime import datetime
 
 from .misc import addr_rep, init_logger
 from .WebRequestHandler import WebRequestHandler
+from .ClientCookieStore import ClientCookieStore, ClientCookie
 
 class Client(object):
 	'''
@@ -132,68 +134,84 @@ class Client(object):
 		'''makes a web request using the raw socket and returns the body of the response'''
 		sock = self.connect_socket()
 		# buf = b''
+		if follow_redir:
+			def redir_callback(body, code, headers, callback=callback, cookie_store=cookie_store):
+				if code in [301,302,307,308]:
+					redir_url = headers['Location'][0]
+					if redir_url.startswith('/'):
+						c = Client(addr=self.addr, port=self.port, TLS=self.TLS, UDP=self.UDP, disp_type=self.disp_type, TLS_check_cert=self.TLS_check_cert)
+						r=redir_url
+					else:
+						c, r = Client.from_url(redir_url, TLS_check_cert=self.TLS_check_cert)
+					if redir_persist_cookies:
+						if cookie_store is None:
+							cookie_store = ClientCookieStore()
+						if 'Set-Cookie' in headers:
+							SetCookieHeaders = headers['Set-Cookie']
+							for cookie_header in SetCookieHeaders:
+								cookie_store.AddCookie(ClientCookie.from_header(cookie_header, self.addr, resource))
+					c.request_web_async(
+						callback,
+						resource=r,
+						method=method,
+						body=body,
+						include_response_headers=include_response_headers,
+						response_headers_as_lists=response_headers_as_lists,
+						follow_redir=follow_redir,
+						redir_persist_cookies=redir_persist_cookies,
+						cookie_store=cookie_store,
+						timeout=timeout,
+						extra_headers=extra_headers
+					)
+				else:
+					if include_response_headers:
+						if response_headers_as_lists:
+							ret_headers = headers
+						else:
+							ret_headers = dict([(k,v[0]) for k, v in headers.items()])
+						callback(body, code, ret_headers)
+					else:
+						callback(body, code)
+			req_callback = redir_callback
+			req_include_response_headers = True
+			req_response_headers_as_lists = True
+		else:
+			req_callback = callback
+			req_include_response_headers = include_response_headers
+			req_response_headers_as_lists = response_headers_as_lists
+
+		if cookie_store is not None:
+			# do 2-level deep copy of extra_headers, converting strings into 1-element lists of strings - this generates a dictionary that we can modify without changing the original dictionary's contents
+			req_extra_headers = dict([(k,{True:v,False:[v]}[isinstance(v,list)].copy()) for k,v in extra_headers.items()])
+			if not 'Cookie' in req_extra_headers:
+				req_extra_headers['Cookie'] = []
+			req_extra_headers['Cookie'].append(
+				ClientCookieStore.GetClientCookiesHeaderText(
+					cookie_store.GetCookiesMatchingCriteria(
+						Domain=self.addr, 
+						Path=resource, 
+						Expiration=datetime.now(), 
+						Secure={True:True, False:None}[self.TLS is not None]
+					)
+				)
+			)
+		else:
+			req_extra_headers = extra_headers
 
 		req_handler = WebRequestHandler(
 			sock, 
 			(self.addr, self.port), 
 			None, 
-			callback, 
+			req_callback, 
 			timeout=timeout, 
 			is_client=True, 
 			client_resource=resource, 
 			client_body=body, 
 			client_method=method, 
 			client_host=self.addr,
-			client_include_response_headers=include_response_headers, 
-			client_headers_as_lists=response_headers_as_lists, 
-			add_headers=extra_headers
+			client_include_response_headers=req_include_response_headers, 
+			client_headers_as_lists=req_response_headers_as_lists, 
+			add_headers=req_extra_headers
 		)
 		req_handler.handle_connection()
-		# # # # #TODO: figure out code reuse strategy between here and WebRequestHandler
-		# # # # def recv_until(terminator=b'\r\n', recv_size=128, sock=sock, buf=buf):
-		# # # # 	try:
-		# # # # 		while not terminator in buf:
-		# # # # 			recv_data = sock.recv(recv_size)
-		# # # # 			buf = buf + recv_data
-		# # # # 			if len(recv_data)==0:
-		# # # # 				return None
-		# # # # 	except socket.timeout:
-		# # # # 		raise RequestTimedOut()
-		# # # # 	(ret, rem) = buf.split(terminator, 1)
-		# # # # 	buf = rem
-		# # # # 	return ret+terminator
-		# # # # def recv_bytes(num_bytes, sock=sock, buf=buf):
-		# # # # 	try:
-		# # # # 		while len(buf) < num_bytes:
-		# # # # 			recv_size = num_bytes-len(buf)
-		# # # # 			recv_data = sock.recv(recv_size)
-		# # # # 			buf = buf + recv_data
-		# # # # 			if len(recv_data)==0:
-		# # # # 				buf = b''
-		# # # # 				return buf
-		# # # # 	except socket.timeout:
-		# # # # 		raise RequestTimedOut()
-		# # # # 	ret = buf[:num_bytes]
-		# # # # 	buf = buf[num_bytes:]
-		# # # # 	return ret
-		# # # # def parse_headers(headers):
-		# # # # 	return dict([tuple(l.split(': ',1)) for l in headers.split('\r\n') if ': ' in l])
-		
-
-
-		# # # # request_str = '{method} {resource} HTTP/1.1\r\nHost: {host}\r\n'.format(resource=resource, method=method, host=self.addr)
-		# # # # if body is None:
-		# # # # 	request_str = request_str+'\r\n'
-		# # # # 	request_dat = request_str.encode('utf-8')
-		# # # # else:
-		# # # # 	request_str = request_str+'Content-Length: {length}\r\n'.format(length=len(body))
-		# # # # 	request_str = request_str+'\r\n'
-		# # # # 	request_dat = request_str.encode('utf-8')
-		# # # # 	request_dat = request_dat + body
-		# # # # sock.write(request_dat)
-		# # # # status = recv_until()
-		# # # # headers_dat = recv_until('\r\n\r\n')
-		# # # # headers = parse_headers(headers_dat)
-		# # # # #TODO: get content length and receive data, just like in WebRequestHandler.recv_request
-		# # # # # TODO: maybe instead use WebRequestHandler, and modify to have a 'client' mode for parsing
 		

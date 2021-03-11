@@ -187,8 +187,11 @@ class WebRequestHandler(object):
 			self.clientsocket.sendall('{method} {resource} HTTP/1.1\r\n'.format(method=self.client_method, resource=self.client_resource).encode('utf-8'))
 			self.clientsocket.sendall('Host: {host}\r\n'.format(host=self.client_host).encode('utf-8'))
 			for key in self.add_headers:
-				val = self.add_headers[key]
-				self.clientsocket.sendall('{key}: {val}\r\n'.format(key=key, val=val).encode('utf-8'))
+				vals = self.add_headers[key]
+				if not isinstance(vals, list):
+					vals = [vals]
+				for val in vals:
+					self.clientsocket.sendall('{key}: {val}\r\n'.format(key=key, val=val).encode('utf-8'))
 			if not (self.client_body is None or len(self.client_body)==0):
 				self.clientsocket.sendall('Content-Length: {length}\r\n'.format(length=len(self.client_body)).encode('utf-8'))
 			self.clientsocket.sendall('\r\n'.encode('utf-8'))
