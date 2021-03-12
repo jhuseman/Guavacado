@@ -63,7 +63,7 @@ class Client(object):
 		return (Client(addr=host, port=port, TLS=TLS, disp_type='web', TLS_check_cert=TLS_check_cert), resource)
 	
 	@staticmethod
-	def request_url(url, method='GET', body=None, TLS_check_cert=True, include_response_headers=False, response_headers_as_lists=False, follow_redir=False, redir_persist_cookies=True, cookie_store=None, extra_headers={}):
+	def request_url(url, method='GET', body=None, TLS_check_cert=True, include_response_headers=False, response_headers_as_lists=False, follow_redir=False, redir_persist_cookies=True, cookie_store=None, timeout=None, extra_headers={}):
 		c, r = Client.from_url(url, TLS_check_cert=TLS_check_cert)
 		return c.request_web(
 			resource=r, 
@@ -74,6 +74,7 @@ class Client(object):
 			follow_redir=follow_redir, 
 			redir_persist_cookies=redir_persist_cookies, 
 			cookie_store=cookie_store, 
+			timeout=timeout,
 			extra_headers=extra_headers
 		)
 	
@@ -105,7 +106,7 @@ class Client(object):
 		sock.shutdown(socket.SHUT_RDWR)
 		sock.close()
 	
-	def request_web(self, resource='/', method='GET', body=None, include_response_headers=False, response_headers_as_lists=False, follow_redir=False, redir_persist_cookies=True, cookie_store=None, extra_headers={}):
+	def request_web(self, resource='/', method='GET', body=None, include_response_headers=False, response_headers_as_lists=False, follow_redir=False, redir_persist_cookies=True, cookie_store=None, timeout=None, extra_headers={}):
 		'''makes a web request and returns the body of the response'''
 		ret = []
 		ret_event = threading.Event()
@@ -125,6 +126,7 @@ class Client(object):
 			follow_redir=follow_redir, 
 			redir_persist_cookies=redir_persist_cookies, 
 			cookie_store=cookie_store, 
+			timeout=timeout,
 			extra_headers=extra_headers
 		)
 		ret_event.wait()
