@@ -78,7 +78,7 @@ class Client(object):
 		return (Client(addr=host, port=port, TLS=TLS, disp_type='web', TLS_check_cert=TLS_check_cert), resource)
 	
 	@staticmethod
-	def request_url(url, method='GET', body=None, TLS_check_cert=True, include_response_headers=False, response_headers_as_lists=False, follow_redir=False, redir_persist_cookies=True, cookie_store=None, extra_headers={}): # pylint: disable=W0102
+	def request_url(url, method='GET', body=None, TLS_check_cert=True, include_response_headers=False, response_headers_as_lists=False, follow_redir=False, redir_persist_cookies=True, cookie_store=None, timeout=None, extra_headers={}): # pylint: disable=W0102
 		'''
 		performs a HTTP(S) request to the given URL and returns the response
 		- `url:string` - standardized URL for the request, starting with 'http://' or 'https://' - if the protocol is missing (string does not contain '://'), assumes HTTP (non-encrypted)
@@ -93,6 +93,7 @@ class Client(object):
 			- `cookies = guavacado.ClientCookieStore()`
 			- `body1, code1 = guavacado.Client.request_url(url1, cookie_store=cookies)`
 			- `body2, code2 = guavacado.Client.request_url(url2, cookie_store=cookies)`
+		- `timeout:numeric` - specifies the time before the request times out
 		- `extra_headers:dict` - dictionary of strings or lists-of-strings providing the value of each header to send in the request.  
 			The key is used as the header name, and the value can be either a string for the header value, or a list of header values for mltiple instances of the same header.
 		- returns one of the following: 
@@ -116,6 +117,7 @@ class Client(object):
 			follow_redir=follow_redir, 
 			redir_persist_cookies=redir_persist_cookies, 
 			cookie_store=cookie_store, 
+			timeout=timeout,
 			extra_headers=extra_headers
 		)
 	
@@ -123,7 +125,7 @@ class Client(object):
 	def open_websocket_url( # pylint: disable=W0102
 			url, 
 			connected=None, received=None, closed=None, http_callback=None, 
-			method='GET', body=None, TLS_check_cert=True, include_response_headers=False, response_headers_as_lists=False, follow_redir=False, redir_persist_cookies=True, cookie_store=None, extra_headers={}):
+			method='GET', body=None, TLS_check_cert=True, include_response_headers=False, response_headers_as_lists=False, follow_redir=False, redir_persist_cookies=True, cookie_store=None, timeout=None, extra_headers={}):
 		'''
 		opens a websocket connection to the given URL and calls the specified functions when the websocket connects, closes, or receives messages
 		- callbacks are called in the following order:
@@ -151,6 +153,7 @@ class Client(object):
 			follow_redir=follow_redir, 
 			redir_persist_cookies=redir_persist_cookies, 
 			cookie_store=cookie_store, 
+			timeout=timeout,
 			extra_headers=extra_headers
 		)
 	
@@ -186,7 +189,7 @@ class Client(object):
 		sock.shutdown(socket.SHUT_RDWR)
 		sock.close()
 	
-	def request_web(self, resource='/', method='GET', body=None, include_response_headers=False, response_headers_as_lists=False, follow_redir=False, redir_persist_cookies=True, cookie_store=None, extra_headers={}): # pylint: disable=W0102
+	def request_web(self, resource='/', method='GET', body=None, include_response_headers=False, response_headers_as_lists=False, follow_redir=False, redir_persist_cookies=True, cookie_store=None, timeout=None, extra_headers={}): # pylint: disable=W0102
 		'''
 		performs a HTTP(S) request to the given resource using the server information stored in this `Client` instance and returns the response
 		- all parameters and return value match those in `Client.request_url` with the following exceptions:
@@ -211,12 +214,13 @@ class Client(object):
 			follow_redir=follow_redir, 
 			redir_persist_cookies=redir_persist_cookies, 
 			cookie_store=cookie_store, 
+			timeout=timeout,
 			extra_headers=extra_headers
 		)
 		ret_event.wait()
 		return ret[0]
 
-	def request_web_async(self,  # pylint: disable=W0102
+	def request_web_async(self, # pylint: disable=W0102
 			callback, 
 			resource='/', 
 			method='GET', body=None, include_response_headers=False, response_headers_as_lists=False, follow_redir=False, redir_persist_cookies=True, cookie_store=None, timeout=None, extra_headers={}, include_web_request_handler=False):
@@ -338,7 +342,7 @@ class Client(object):
 		)
 		req_handler.handle_connection()
 	
-	def open_websocket(self,  # pylint: disable=W0102
+	def open_websocket(self, # pylint: disable=W0102
 			connected=None, received=None, closed=None, http_callback=None, 
 			resource='/', 
 			method='GET', body=None, include_response_headers=False, response_headers_as_lists=False, follow_redir=False, redir_persist_cookies=True, cookie_store=None, timeout=None, extra_headers={}):
