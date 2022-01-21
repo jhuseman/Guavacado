@@ -1,3 +1,20 @@
 {
-	"python.linting.pylintEnabled": true
+	"python.linting.pylintEnabled": true,
+	"python.linting.pylintArgs": [
+		"--indent-string=\"\\t\"",
+		"--max-line-length=240",
+		"--max-args=20",
+		"--disable=C0103",
+		"--disable=C0209",
+		"--disable=C0303",
+		"--disable=W0201",
+		"--disable=W0703",
+		"--disable=W1202"
+	],
+    "python.testing.cwd": "${workspaceFolder}/test",
+    "python.testing.pytestArgs": [
+        "."
+    ],
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true
 }

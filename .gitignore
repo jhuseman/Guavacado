@@ -1,3 +1,5 @@
 build/
 *.pyc
 guavacado.egg-info/
+TLS_keys/
+dist/
