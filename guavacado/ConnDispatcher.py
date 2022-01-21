@@ -1,10 +1,9 @@
 #! /usr/bin/env python
 
+import threading
+
 from .misc import init_logger, addr_rep
 from .ConnListener import ConnListener
-
-import os
-import threading
 
 class ConnDispatcher(object):
 	'''handles dispatching connections from multiple ConnListener instances to the proper callback functions'''
@@ -24,20 +23,18 @@ class ConnDispatcher(object):
 		return name
 	
 	def start_service(self):
-		for listener_name in self.conn_listeners:
-			listener = self.conn_listeners[listener_name]
+		for _listener_name, listener in self.conn_listeners.items():
 			self.log_handler.debug('Starting connection listener for {addr}'.format(addr=addr_rep(listener['addr'])))
 			listener['thread'] = threading.Thread(target=listener['listener'].run, name='conn_listener_{addr}'.format(addr=addr_rep(listener['addr'])))
 			listener['thread'].daemon = True
 			listener['thread'].start()
 	
 	def stop_service(self):
-		for listener_name in self.conn_listeners:
-			listener = self.conn_listeners[listener_name]
+		for _listener_name, listener in self.conn_listeners.items():
 			self.log_handler.debug('Stopping connection listener for {addr}'.format(addr=addr_rep(listener['addr'])))
 			listener['listener'].stop()
 			listener['thread'].join(60)
 			if listener['thread'].is_alive():
-				self.log_handler.warn('Continuing without closing connection listener thread for {addr} because it did not close!'.format(addr=addr_rep(listener['addr'])))
+				self.log_handler.warning('Continuing without closing connection listener thread for {addr} because it did not close!'.format(addr=addr_rep(listener['addr'])))
 			else:
 				self.log_handler.debug('Stopped connection listener for {addr}'.format(addr=addr_rep(listener['addr'])))

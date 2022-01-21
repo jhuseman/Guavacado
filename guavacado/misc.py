@@ -37,8 +37,8 @@ ALL_LOGGER_NAMES = []
 CURRENT_LOGLEVEL = logging.NOTSET
 
 def set_loglevel(levelstr):
-	global CURRENT_LOGLEVEL
-	global ALL_LOGGER_NAMES
+	global CURRENT_LOGLEVEL #pylint: disable=W0603
+	global ALL_LOGGER_NAMES #pylint: disable=W0602
 	if levelstr is None:
 		level = None
 	elif isinstance(levelstr, int):
@@ -57,8 +57,8 @@ def set_loglevel(levelstr):
 		logger.setLevel(CURRENT_LOGLEVEL)
 
 def init_logger(name):
-	global CURRENT_LOGLEVEL
-	global ALL_LOGGER_NAMES
+	global CURRENT_LOGLEVEL #pylint: disable=W0602
+	global ALL_LOGGER_NAMES #pylint: disable=W0602
 	fmt = '%(asctime)s | %(levelname)-8s | %(filename)-20s | line:%(lineno)-3s | %(message)s'
 	logger = logging.getLogger(name)
 	if not name in ALL_LOGGER_NAMES:

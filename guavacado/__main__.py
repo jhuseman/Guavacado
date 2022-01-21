@@ -1,9 +1,9 @@
+import os
+import argparse
+
 from .WebHost import WebHost
 from .WebFileInterface import WebFileInterface
 from .misc import wait_for_keyboardinterrupt
-
-import os
-import argparse
 
 def main():
 	"""

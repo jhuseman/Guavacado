@@ -1,18 +1,24 @@
-# creates dictionary of http status numbers, indicating the name of the status code
-# status codes taken from https://en.wikipedia.org/wiki/List_of_HTTP_status_codes
+'''
+creates dictionary of http status numbers, indicating the name of the status code
+status codes taken from https://en.wikipedia.org/wiki/List_of_HTTP_status_codes
 
 
 
-# All HTTP response status codes are separated into five classes (or categories). The first digit of the status code defines the class of response. The last two digits do not have any class or categorization role. There are five values for the first digit:
-# * 1xx (Informational): The request was received, continuing process
-# * 2xx (Successful): The request was successfully received, understood and accepted
-# * 3xx (Redirection): Further action needs to be taken in order to complete the request
-# * 4xx (Client Error): The request contains bad syntax or cannot be fulfilled
-# * 5xx (Server Error): The server failed to fulfill an apparently valid request
+All HTTP response status codes are separated into five classes (or categories). The first digit of the status code defines the class of response. 
+The last two digits do not have any class or categorization role. There are five values for the first digit:
+* 1xx (Informational): The request was received, continuing process
+* 2xx (Successful): The request was successfully received, understood and accepted
+* 3xx (Redirection): Further action needs to be taken in order to complete the request
+* 4xx (Client Error): The request contains bad syntax or cannot be fulfilled
+* 5xx (Server Error): The server failed to fulfill an apparently valid request
+'''
 
 http_status_info = {
 	# ==1xx Informational response==
-	# An informational response indicates that the request was received and understood. It is issued on a provisional basis while request processing continues. It alerts the client to wait for a final response. The message consists only of the status line and optional header fields, and is terminated by an empty line. As the HTTP/1.0 standard did not define any 1xx status codes, servers ''must not''<ref group="note">Italicised words and phrases such as ''must'' and ''should'' represent interpretation guidelines as given by RFC 2119</ref> send a 1xx response to an HTTP/1.0 compliant client except under experimental conditions.<ref>{{cite web|title=10 Status Code Definitions|url=http://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html|website=W3|accessdate=16 October 2015}}</ref>
+	# An informational response indicates that the request was received and understood. It is issued on a provisional basis while request processing continues. 
+	# It alerts the client to wait for a final response. The message consists only of the status line and optional header fields, and is terminated by an empty line. 
+	# As the HTTP/1.0 standard did not define any 1xx status codes, servers ''must not'' send a 1xx response to an HTTP/1.0 compliant client except under experimental conditions.
+	# <ref>{{cite web|title=10 Status Code Definitions|url=http://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html|website=W3|accessdate=16 October 2015}}</ref>
 
 	100: {
 		'name':"Continue",
@@ -135,7 +141,9 @@ http_status_info = {
 	"""},
 	# ==3xx Redirection==
 	# This class of status code indicates the client must take additional action to complete the request. Many of these status codes are used in [[URL redirection]].<ref name="iana_status_codes" />
-	# A user agent may carry out the additional action with no user interaction only if the method used in the second request is GET or HEAD. A user agent may automatically redirect a request. A user agent should detect and intervene to prevent cyclical redirects.<ref>{{cite web|url=http://tools.ietf.org/html/rfc7231#section-6.4|title=Hypertext Transfer Protocol (HTTP/1.1): Semantics and Content|website=IETF|accessdate=13 February 2016}}</ref>
+	# A user agent may carry out the additional action with no user interaction only if the method used in the second request is GET or HEAD. A user agent may automatically redirect a request. 
+	# A user agent should detect and intervene to prevent cyclical redirects.
+	# <ref>{{cite web|url=http://tools.ietf.org/html/rfc7231#section-6.4|title=Hypertext Transfer Protocol (HTTP/1.1): Semantics and Content|website=IETF|accessdate=13 February 2016}}</ref>
 
 	300: {
 		'name':"Multiple Choices",
@@ -232,7 +240,10 @@ http_status_info = {
 	"""},
 	# ==4xx Client errors==
 	# [[File:Wikipedia Not Found Page.png|alt=A 404 error on Wikipedia.|thumb|404 error on Wikipedia]]
-	# This class of status code is intended for situations in which the error seems to have been caused by the client. Except when responding to a HEAD request, the server ''should'' include an entity containing an explanation of the error situation, and whether it is a temporary or permanent condition. These status codes are applicable to any request method. User agents ''should'' display any included entity to the user.<ref>{{cite web|title=E Explanation of Failure Codes|url=https://docs.oracle.com/cd/E14269_01/doc.451/e14266/result_codes.htm|website=Oracle|accessdate=16 October 2015}}</ref>
+	# This class of status code is intended for situations in which the error seems to have been caused by the client. 
+	# Except when responding to a HEAD request, the server ''should'' include an entity containing an explanation of the error situation, and whether it is a temporary or permanent condition. 
+	# These status codes are applicable to any request method. User agents ''should'' display any included entity to the user.
+	# <ref>{{cite web|title=E Explanation of Failure Codes|url=https://docs.oracle.com/cd/E14269_01/doc.451/e14266/result_codes.htm|website=Oracle|accessdate=16 October 2015}}</ref>
 
 	400: {
 		'name':"Bad Request",
@@ -440,7 +451,11 @@ http_status_info = {
 	"""},
 	# ==<span id="5xx Server Error">5xx Server errors</span>==
 	# The [[server (computing)|server]] failed to fulfill a request.<ref>{{cite web|title=Server Error Codes|url=http://www.csgnetwork.com/servererrors.html|website=CSGNetwork.com|accessdate=16 October 2015}}</ref>
-	# Response status codes beginning with the digit "5" indicate cases in which the server is aware that it has encountered an error or is otherwise incapable of performing the request. Except when responding to a HEAD request, the server ''should'' include an entity containing an explanation of the error situation, and indicate whether it is a temporary or permanent condition. Likewise, user agents ''should'' display any included entity to the user. These response codes are applicable to any request method.<ref>{{cite web|last1=mrGott|title=HTTP Status Codes To Handle Errors In Your API|url=http://blog.mrgott.com/misc/5-http-status-codes-to-handle-errors-in-your-api|website=mrGott|accessdate=16 October 2015|deadurl=yes|archiveurl=https://web.archive.org/web/20150930030217/http://blog.mrgott.com/misc/5-http-status-codes-to-handle-errors-in-your-api|archivedate=September 30, 2015|df=mdy-all}}</ref>
+	# Response status codes beginning with the digit "5" indicate cases in which the server is aware that it has encountered an error or is otherwise incapable of performing the request. 
+	# Except when responding to a HEAD request, the server ''should'' include an entity containing an explanation of the error situation, and indicate whether it is a temporary or permanent condition. 
+	# Likewise, user agents ''should'' display any included entity to the user. These response codes are applicable to any request method.
+	# <ref>{{cite web|last1=mrGott|title=HTTP Status Codes To Handle Errors In Your API|url=http://blog.mrgott.com/misc/5-http-status-codes-to-handle-errors-in-your-api|website=mrGott|accessdate=16 October 2015|
+	# 	deadurl=yes|archiveurl=https://web.archive.org/web/20150930030217/http://blog.mrgott.com/misc/5-http-status-codes-to-handle-errors-in-your-api|archivedate=September 30, 2015|df=mdy-all}}</ref>
 
 	500: {
 		'name':"Internal Server Error",
@@ -613,7 +628,9 @@ http_status_info = {
 			:Used in [[Exchange ActiveSync]] when either a more efficient server is available or the server cannot access the users' mailbox.<ref>{{cite web | title = MS-ASCMD, Section 3.1.5.2.2 | url = http://msdn.microsoft.com/en-us/library/gg651019 |publisher=Msdn.microsoft.com|accessdate=January 8, 2015 }}</ref> The client is expected to re-run the HTTP AutoDiscover operation to find a more appropriate server.<ref>{{cite web | title = Ms-oxdisco | url = http://msdn.microsoft.com/en-us/library/cc433481 |publisher=Msdn.microsoft.com|accessdate=January 8, 2015 }}</ref>
 	"""},
 	# ===nginx===
-	# The [[nginx]] web server software expands the 4xx error space to signal issues with the client's request.<ref>{{cite web|url=http://lxr.nginx.org/source/src/http/ngx_http_request.h|title=ngx_http_request.h|work=nginx 1.9.5 source code|publisher=nginx inc.|accessdate=2016-01-09}}</ref><ref>{{cite web|url=http://lxr.nginx.org/source/src/http/ngx_http_special_response.c|title=ngx_http_special_response.c|work=nginx 1.9.5 source code|publisher=nginx inc.|accessdate=2016-01-09}}</ref>
+	# The [[nginx]] web server software expands the 4xx error space to signal issues with the client's request.
+	# <ref>{{cite web|url=http://lxr.nginx.org/source/src/http/ngx_http_request.h|title=ngx_http_request.h|work=nginx 1.9.5 source code|publisher=nginx inc.|accessdate=2016-01-09}}</ref>
+	# <ref>{{cite web|url=http://lxr.nginx.org/source/src/http/ngx_http_special_response.c|title=ngx_http_special_response.c|work=nginx 1.9.5 source code|publisher=nginx inc.|accessdate=2016-01-09}}</ref>
 	444: {
 		'name':"No Response",
 		'desc':"""
@@ -640,7 +657,8 @@ http_status_info = {
 			:An expansion of the [[#400|400 Bad Request]] response code, used when the client has made a HTTP request to a port listening for HTTPS requests.
 	"""},
 	# ===Cloudflare===
-	# [[Cloudflare]]'s reverse proxy service expands the 5xx series of errors space to signal issues with the origin server.<ref>{{cite web|url=https://support.cloudflare.com/hc/en-us/sections/200820298-Error-Pages|title=Troubleshooting: Error Pages|publisher=[[Cloudflare]]|accessdate=2016-01-09}}</ref>
+	# [[Cloudflare]]'s reverse proxy service expands the 5xx series of errors space to signal issues with the origin server.
+	# <ref>{{cite web|url=https://support.cloudflare.com/hc/en-us/sections/200820298-Error-Pages|title=Troubleshooting: Error Pages|publisher=[[Cloudflare]]|accessdate=2016-01-09}}</ref>
 
 	520: {
 		'name':"Unknown Error",
@@ -679,6 +697,7 @@ http_status_info = {
 	"""},
 }
 def get_name(v):
+	'''helper function for getting the name for the http_status_codes dictionary'''
 	if isinstance(v, dict):
 		return v["name"]
 	else:

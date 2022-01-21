@@ -1,11 +1,11 @@
 #! /usr/bin/env python
 
-from .misc import init_logger, addr_rep
-from .http_status_codes import http_status_codes
-
 import mimetypes
 import traceback
 import socket
+
+from .misc import init_logger, addr_rep
+from .http_status_codes import http_status_codes
 
 def parse_headers(headers, as_lists=False):
 	ret = {}
@@ -28,28 +28,25 @@ def parse_headers(headers, as_lists=False):
 
 class WebRequestHandlingException(Exception):
 	'''base class for all exceptions related to web requests'''
-	pass
 
 class RequestTimedOut(WebRequestHandlingException):
 	'''indicates there was a timeout receiving required data'''
-	pass
 
 class IncompleteRequest(WebRequestHandlingException):
 	'''indicates not enough data was received with the request'''
-	pass
 
 class IncompleteRequestHeader(WebRequestHandlingException):
 	'''indicates the request header was not terminated properly'''
-	pass
 
 class IncorrectRequestSyntax(WebRequestHandlingException):
 	'''indicates the syntax of the main request line was incorrect'''
-	pass
 
 class WebRequestHandler(object):
 	'''handles requests by identifying function based on the URL, then dispatching the request to the appropriate function'''
-	#TODO: figure out if host=None works from external to network
-	def __init__(self, clientsocket, address, client_id, request_handler, timeout=None, is_client=False, client_resource=None, client_body=None, client_method=None, client_host=None, client_include_response_headers=False, client_headers_as_lists=False, auth_handler=None, add_headers={}):
+	def __init__(self,  # pylint: disable=W0102
+			clientsocket, address, client_id, request_handler, timeout=None, 
+			is_client=False, client_resource=None, client_body=None, client_method=None, client_host=None, client_include_response_headers=False, client_headers_as_lists=False, 
+			auth_handler=None, add_headers={}):
 		self.log_handler = init_logger(__name__)
 		self.clientsocket = clientsocket
 		self.address = address
@@ -64,11 +61,15 @@ class WebRequestHandler(object):
 		self.client_headers_as_lists = client_headers_as_lists
 		self.auth_handler = auth_handler
 		self.add_headers = add_headers
+		self.success_status_code = 200
 		self.clientsocket.settimeout(timeout)
 
 		self.is_received = False
 		self.buf = b''
 	
+	def setSuccessStatusCode(self, code):
+		self.success_status_code = code
+
 	def handle_connection(self):
 		if not self.is_client:
 			self.recv()
@@ -130,13 +131,13 @@ class WebRequestHandler(object):
 			self.log_handler.error('{addr} [id {id}] Incomplete request header!'.format(addr=addr_rep(self.address), id=self.client_id))
 		except IncompleteRequest:
 			self.log_handler.error('{addr} [id {id}] Incomplete request!'.format(addr=addr_rep(self.address), id=self.client_id))
-		except:
+		except Exception:
 			self.log_handler.error('{addr} [id {id}] An Error was encountered while receiving the request!'.format(addr=addr_rep(self.address), id=self.client_id))
 
 	def send(self):
 		if not self.is_client:
 			try:
-				if self.auth_handler != None:
+				if self.auth_handler is not None:
 					auth_info = self.headers.get('Authorization',None)
 					if auth_info is None:
 						self.log_handler.info('{addr} [id {id}] 401 Unauthorized: {method} {url}'.format(addr=addr_rep(self.address), id=self.client_id, method=self.method, url=self.url))
@@ -163,6 +164,7 @@ class WebRequestHandler(object):
 					header_data = {'url':self.url}
 					if not ret_buf is None:
 						header_data['content_length'] = len(ret_buf)
+					header_data['status_code'] = self.success_status_code # pass this in as part of dictionary so it can be overridden by update line below
 					header_data.update(ret_data[0])
 					self.send_header_as_code(**header_data)
 					if not ret_buf is None:
@@ -172,16 +174,16 @@ class WebRequestHandler(object):
 						ret_buf = ret_data
 					else:
 						ret_buf = ret_data.encode('utf-8')
-					self.send_header_as_code(content_length=len(ret_buf))
+					self.send_header_as_code(status_code=self.success_status_code, content_length=len(ret_buf))
 					self.clientsocket.sendall(ret_buf)
-			except:
-				self.log_handler.warn('{addr} [id {id}] An Error was encountered while handling the request!'.format(addr=addr_rep(self.address), id=self.client_id))
+			except Exception:
+				self.log_handler.warning('{addr} [id {id}] An Error was encountered while handling the request!'.format(addr=addr_rep(self.address), id=self.client_id))
 				tb = traceback.format_exc()
 				try:
 					ret_buf = self.get_500_page(tb=tb).encode('utf-8')
 					self.send_header_as_code(status_code=500, url='500.html', content_length=len(ret_buf))
 					self.clientsocket.sendall(ret_buf)
-				except:
+				except Exception:
 					self.log_handler.error('{addr} [id {id}] An Error was encountered while attempting to send a 500 Error response!'.format(addr=addr_rep(self.address), id=self.client_id))
 		else:
 			self.clientsocket.sendall('{method} {resource} HTTP/1.1\r\n'.format(method=self.client_method, resource=self.client_resource).encode('utf-8'))
@@ -205,8 +207,8 @@ class WebRequestHandler(object):
 				self.buf = self.buf + recv_data
 				if len(recv_data)==0:
 					return None
-		except socket.timeout:
-			raise RequestTimedOut()
+		except socket.timeout as e:
+			raise RequestTimedOut() from e
 		(ret, rem) = self.buf.split(terminator, 1)
 		self.buf = rem
 		return ret+terminator
@@ -218,15 +220,16 @@ class WebRequestHandler(object):
 				recv_data = self.clientsocket.recv(recv_size)
 				self.buf = self.buf + recv_data
 				if len(recv_data)==0:
+					ret = self.buf
 					self.buf = b''
-					return self.buf
-		except socket.timeout:
-			raise RequestTimedOut()
+					return ret
+		except socket.timeout as e:
+			raise RequestTimedOut() from e
 		ret = self.buf[:num_bytes]
 		self.buf = self.buf[num_bytes:]
 		return ret
 	
-	def send_header_as_code(self, status_code=200, url=None, content_length=None, extra_header_keys={}):
+	def send_header_as_code(self, status_code=200, url=None, content_length=None, extra_header_keys={}): # pylint: disable=W0102
 		"""send the header of the response with the given status code"""
 		if url is None:
 			url = self.url
@@ -242,8 +245,7 @@ class WebRequestHandler(object):
 		header_keys.update(extra_header_keys)
 		header_keys.update(self.add_headers)
 		self.clientsocket.sendall('HTTP/1.1 {code} {desc}\r\n'.format(code=status_code, desc=http_status_codes[status_code]).encode('utf-8'))
-		for key in header_keys:
-			vals = header_keys[key]
+		for key, vals in header_keys.items():
 			if not isinstance(vals, list):
 				vals = [vals]
 			for val in vals:
