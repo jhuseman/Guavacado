@@ -1,25 +1,17 @@
 #! /usr/bin/env python
 
-from .version_number import guavacado_version
-WebServerNameAndVer = "Guavacado/"+guavacado_version
-
-from .misc import generate_redirect_page, init_logger, addr_rep
-
 import os
 import fnmatch
 from datetime import datetime
 
+from .misc import generate_redirect_page, init_logger, addr_rep
+
+from .version_number import guavacado_version
+WebServerNameAndVer = "Guavacado/"+guavacado_version
+
+
 class WebFileInterface(object):
-	"""
-	Allows for easily defining web interfaces for the server.
-
-	Expects the variable "self.host" to be set to a WebHost
-	object before calling "connect()".
-
-	See implementation of __init__ class for an example initialization.
-	"""
-
-	def __init__(self, host=None, host_kwargs={}, host_addr_kwargs={}, web_dispatcher_ident=None, dispatcher_level=None, staticdir="static", staticindex="index.html", include_fp=['{staticdir}/*'], exclude_fp=[]):
+	def __init__(self, host=None, host_kwargs={}, host_addr_kwargs={}, web_dispatcher_ident=None, dispatcher_level=None, staticdir="static", staticindex="index.html", include_fp=['{staticdir}/*'], exclude_fp=[]): # pylint: disable=W0102
 		if web_dispatcher_ident is None:
 			disp_type = 'web'
 		else:
@@ -27,7 +19,7 @@ class WebFileInterface(object):
 
 		# starts a WebHost on port 80 that
 		if host is None:
-			from guavacado import WebHost
+			from guavacado import WebHost # pylint: disable=C0415
 			self.host = WebHost(**host_kwargs)
 			host_addr_kwargs_add = host_addr_kwargs
 			if not web_dispatcher_ident is None:
@@ -50,12 +42,12 @@ class WebFileInterface(object):
 	def register_method_action(self, method, callback):
 		self.method_actions[method] = callback
 	
-	def identify_request(self, url=None, method=None, headers=None, body=None):
-		if method in self.method_actions:
-			return self.method_actions[method](url, headers, body)
+	def identify_request(self, req_info={'url':None, 'method':None, 'headers':None, 'body':None, 'clientsocket': None, 'extra_response_headers':{}}): # pylint: disable=W0102
+		if req_info['method'] in self.method_actions:
+			return self.method_actions[req_info['method']](req_info['url'], req_info['headers'], req_info['body'])
 		return None
 	
-	def identify_GET_request(self, url, headers, body):
+	def identify_GET_request(self, url, _headers, _body):
 		url_relative = url[1:]
 		while len(url_relative)>0 and url_relative[0]=='/':
 			url_relative = url_relative[1:]
