@@ -1,5 +1,10 @@
 #! /usr/bin/env python
 
+'''
+opens a socket listening for a connection from a client
+calls conn_callback in a new thread with a socket when a connection is established
+'''
+
 import socket
 import ssl
 import threading
@@ -131,7 +136,7 @@ class ConnListener(object):
 			clientsocket.close()
 			self.log_handler.debug('{addr} [id {id}] Closed connection'.format(addr=addr_rep(address),id=client_id))
 		except OSError:
-			self.log_handler.warn('{addr} [id {id}] Could not shut down connection because it is not open!'.format(addr=addr_rep(address),id=client_id))
+			self.log_handler.warning('{addr} [id {id}] Could not shut down connection because it is not open!'.format(addr=addr_rep(address),id=client_id))
 		# remove references to this client before closing the thread
 		if client_id in self.client_info:
 			del self.client_info[client_id]
@@ -162,7 +167,7 @@ class ConnListener(object):
 						self.stop_event.set()
 			except ssl.SSLError as e:
 				if e.reason in ['SSLV3_ALERT_CERTIFICATE_UNKNOWN', 'TLSV1_ALERT_UNKNOWN_CA']:
-					self.log_handler.warn("The incoming client refused to connect due to an invalid certificate!")
+					self.log_handler.warning("The incoming client refused to connect due to an invalid certificate!")
 				else:
 					self.log_handler.error("An error was encountered trying to set up a TLS connection!")
 					self.log_handler.error(traceback.format_exc())
@@ -175,9 +180,17 @@ class ConnListener(object):
 		'''stop accepting connections and shut down all sockets'''
 		self.log_handler.debug('Stopping server socket.')
 		self.stop_event.set()
-		# connect as fake client to stop the looping thread
-		s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		if not self.udp:
+			# connect as fake client to stop the looping thread
+			if self.tls:
+				tls_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+				tls_context.check_hostname = False
+				tls_context.verify_mode = ssl.CERT_NONE
+				tls_context.load_default_certs()
+				raw_sock = socket.socket(socket.AF_INET)
+				s = tls_context.wrap_socket(raw_sock, server_hostname='localhost')
+			else:
+				s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 			s.connect(('localhost', self.addr[1]))
 			s.shutdown(socket.SHUT_RDWR)
 			s.close()
@@ -185,7 +198,7 @@ class ConnListener(object):
 			# self.sock.shutdown(socket.SHUT_RDWR)
 			self.sock.close()
 		except OSError:
-			self.log_handler.warn('Not shutting down server socket because it is not connected.')
+			self.log_handler.warning('Not shutting down server socket because it is not connected.')
 		self.log_handler.debug('Stopping client socket connections.')
 		client_ids = list(self.client_info.keys())
 		for client_id in client_ids:
@@ -204,5 +217,5 @@ class ConnListener(object):
 				if client_dat['thread'].is_alive():
 					client_dat['thread'].join(timeout=5)
 				if client_dat['thread'].is_alive():
-					self.log_handler.warn('Thread id {ident} ({addr} [id {id}]) did not close after 5 seconds! Continuing anyways...'.format(ident=client_dat['thread'].ident,addr=addr_rep(client_dat['address']),id=client_id))
+					self.log_handler.warning('Thread id {ident} ({addr} [id {id}]) did not close after 5 seconds! Continuing anyways...'.format(ident=client_dat['thread'].ident,addr=addr_rep(client_dat['address']),id=client_id))
 		self.log_handler.debug('All client socket connections stopped.')

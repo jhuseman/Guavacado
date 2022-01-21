@@ -1,4 +1,7 @@
 #! /usr/bin/env python
+'''
+	"Basic" authentication scheme handler
+'''
 import base64
 
 class BasicAuth(object):
@@ -13,13 +16,14 @@ class BasicAuth(object):
 		if self.auth_handler is None:
 			self.auth_handler = self.check_auth_dict
 	
-	def authenticate(self, auth_type, credentials):
+	def authenticate(self, _auth_type, credentials):
 		'''Convert the credentials to plain-text and call auth_handler to check if they are valid'''
 		decoded = base64.b64decode(credentials).decode('utf-8')
 		username, password = tuple(decoded.split(':',1))
 		return self.auth_handler(username, password)
 	
 	def check_auth_dict(self, username, password):
+		'''checks the `auth_dict` dictionary for the given username and password combination'''
 		if self.auth_dict is None:
 			return False
 		if username not in self.auth_dict:

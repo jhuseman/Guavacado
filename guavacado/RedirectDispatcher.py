@@ -1,16 +1,11 @@
 #! /usr/bin/env python
 
+from .misc import generate_redirect_page_w_statuscode, init_logger
+from .WebRequestHandler import WebRequestHandler
+
 from .version_number import guavacado_version
 WebServerNameAndVer = "Guavacado/"+guavacado_version
 
-from .misc import generate_redirect_page_w_statuscode, init_logger
-from .ConnListener import ConnListener
-from .WebRequestHandler import WebRequestHandler
-
-from datetime import datetime
-import os
-import threading
-import fnmatch
 
 class RedirectDispatcher(object):
 	'''handles requests by identifying function based on the URL, then dispatching the request to the appropriate function'''
@@ -24,6 +19,9 @@ class RedirectDispatcher(object):
 		handler.handle_connection()
 	
 	def request_handler(self, url=None, method=None, headers=None, body=None):
+		_method=method # suppressing linter messages
+		_headers=headers
+		_body=body
 		if url[0]=='/':
 			rel_url = url[1:]
 		else:

@@ -12,7 +12,7 @@ class WebInterface(object):
 	See implementation of __init__ class for an example initialization.
 	"""
 
-	def __init__(self, host=None, host_kwargs={}, host_addr_kwargs={}, web_dispatcher_ident=None, dispatcher_level=None):
+	def __init__(self, host=None, host_kwargs={}, host_addr_kwargs={}, web_dispatcher_ident=None, dispatcher_level=None): # pylint: disable=W0102
 		if web_dispatcher_ident is None:
 			disp_type = 'web'
 		else:
@@ -20,7 +20,7 @@ class WebInterface(object):
 
 		# starts a WebHost on port 80 that
 		if host is None:
-			from guavacado import WebHost
+			from guavacado import WebHost # pylint: disable=C0415
 			self.host = WebHost(**host_kwargs)
 			host_addr_kwargs_add = host_addr_kwargs
 			if not web_dispatcher_ident is None:
@@ -38,14 +38,14 @@ class WebInterface(object):
 		# # to call member function GET_ID() with the argument after "/test/" when a GET request
 		# # is received for "/test/<any text here>"
 	
-	def identify_request(self, url=None, method=None, headers=None, body=None):
-		if method in self.resource_dict:
-			url_no_browseparams = url.split('?')[0] # remove and ignore anything after a question mark
+	def identify_request(self, req_info={'url':None, 'method':None, 'headers':None, 'body':None, 'clientsocket': None, 'extra_response_headers':{}}): # pylint: disable=W0102
+		if req_info['method'] in self.resource_dict:
+			url_no_browseparams = req_info['url'].split('?')[0] # remove and ignore anything after a question mark
 			for (url_prefix, url_param_count, params) in self.get_possible_split_url_params(url_no_browseparams):
-				if url_prefix in self.resource_dict[method]:
-					if url_param_count in self.resource_dict[method][url_prefix]:
-						callback = self.resource_dict[method][url_prefix][url_param_count]
-						args = (body,) + params
+				if url_prefix in self.resource_dict[req_info['method']]:
+					if url_param_count in self.resource_dict[req_info['method']][url_prefix]:
+						callback = self.resource_dict[req_info['method']][url_prefix][url_param_count]
+						args = (req_info['body'],) + params
 						return (callback, args)
 		return None
 	
@@ -97,7 +97,7 @@ class WebInterface(object):
 		if body_included:
 			disp_callback = callback
 		else:
-			def disp_callback(body, *args):
+			def disp_callback(_body, *args):
 				return callback(*args)
 		if method not in self.resource_dict:
 			self.resource_dict[method] = {}
