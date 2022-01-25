@@ -386,12 +386,14 @@ class Client(object):
 				if received is not None:
 					received(handler, msg)
 			handler = WebSocketHandler(req_handler, msg_received, is_client=True)
-			if connected is not None:
-				connected(handler)
-			thr = threading.Thread(target=handler.run, name='websocket_clientprocessor_{self.addr}_{self.port}_{resource}')
+			def run_websocket():
+				if connected is not None:
+					connected(handler)
+				handler.run()
+				if closed is not None:
+					closed(handler)
+			thr = threading.Thread(target=run_websocket, name='websocket_clientprocessor_{self.addr}_{self.port}_{resource}')
 			thr.start()
-			if closed is not None:
-				closed(handler)
 			
 		req_headers = {}
 		req_headers.update(extra_headers)
