@@ -388,7 +388,8 @@ class Client(object):
 			handler = WebSocketHandler(req_handler, msg_received, is_client=True)
 			if connected is not None:
 				connected(handler)
-			handler.run()
+			thr = threading.Thread(target=handler.run, name='websocket_clientprocessor_{self.addr}_{self.port}_{resource}')
+			thr.start()
 			if closed is not None:
 				closed(handler)
 			
