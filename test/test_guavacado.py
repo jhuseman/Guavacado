@@ -23,6 +23,7 @@ class GuavacadoTestEnvironment(object):
 		with open(os.path.join('served_files','test_serve_file.txt'), 'rb') as fp:
 			self.test_serve_file_contents = fp.read()
 		self.test_function_contents = b'The test content works!!!'
+		self.test_function_contents_1200 = os.urandom(1200)
 
 	def start_test_server(self):
 		'''starts the server for the test'''
@@ -241,7 +242,7 @@ class TestGuavacado:
 	
 	def test_WebSocket_connection(self):
 		'''test WebSocket connection'''
-		def test_websocket_echo_url(url, TLS_check_cert=True, follow_redir=False):
+		def test_websocket_echo_url(url, TLS_check_cert=True, follow_redir=False, data=self.test_env.test_function_contents):
 			closed = threading.Condition()
 			state = {
 				'received':False,
@@ -249,13 +250,13 @@ class TestGuavacado:
 			}
 			def websock_conn(handler):
 				send_msg = guavacado.WebSocketMessage()
-				send_msg.write(self.test_env.test_function_contents)
+				send_msg.write(data)
 				send_msg.end_message()
 				handler.send_message(send_msg)
 			def websock_recv(handler, msg):
 				state['received'] = True
 				msg_body = msg.read_all()
-				self.helpers.assertEqual(msg_body, self.test_env.test_function_contents)
+				self.helpers.assertEqual(msg_body, data)
 				handler.close_connection()
 			def websock_close(_handler):
 				state['closed'] = True
@@ -270,6 +271,7 @@ class TestGuavacado:
 		test_websocket_echo_url('wss://localhost/websock_echo/', TLS_check_cert=False)
 		test_websocket_echo_url('ws://localhost/websock_echo/', TLS_check_cert=False, follow_redir=True)
 		test_websocket_echo_url('ws://localhost:88/websock_echo/')
+		test_websocket_echo_url('ws://localhost:88/websock_echo/', TLS_check_cert=False, follow_redir=True, data=self.test_env.test_function_contents_1200)
 
 if __name__=='__main__':
 	test_env = GuavacadoTestEnvironment()

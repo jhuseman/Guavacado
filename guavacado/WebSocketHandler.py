@@ -86,10 +86,24 @@ class WebSocketHandler(object):
 						payload_additional_bytes = b''
 					elif payload_len < (1 << 16):
 						payload_len_0 = 126
-						payload_additional_bytes = struct.pack('<H',payload_len)
+						# payload_additional_bytes = struct.pack('<H',payload_len)
+						payload_additional_bytes = bytes([
+							(payload_len & (0xff << 8)) >> 8, 
+							payload_len & 0xff,
+						])
 					else:
 						payload_len_0 = 127
-						payload_additional_bytes = struct.pack('<I',payload_len)
+						# payload_additional_bytes = struct.pack('<I',payload_len)
+						payload_additional_bytes = bytes([
+							(payload_len & (0xff << 56)) >> 56, 
+							(payload_len & (0xff << 48)) >> 48, 
+							(payload_len & (0xff << 40)) >> 40, 
+							(payload_len & (0xff << 32)) >> 32, 
+							(payload_len & (0xff << 24)) >> 24, 
+							(payload_len & (0xff << 16)) >> 16, 
+							(payload_len & (0xff << 8)) >> 8, 
+							payload_len & 0xff,
+						])
 					second_byte = (payload_len_0 & 127) ^ (mask_bit << 7)
 					if masked:
 						masking_key = os.urandom(4)
@@ -141,20 +155,20 @@ class WebSocketHandler(object):
 			payload_len_0 = second_byte & 0x7f # 7 least significant bits
 			if payload_len_0==126:
 				len_bytes = self._recv_bytes(2)
-				# little-endian 16-bit number
-				payload_len = (len_bytes[1] << 8) ^ len_bytes[0]
+				# big-endian 16-bit number
+				payload_len = (len_bytes[0] << 8) ^ len_bytes[1]
 			elif payload_len_0==127:
 				len_bytes = self._recv_bytes(8)
-				# little-endian 64-bit number
+				# big-endian 64-bit number
 				payload_len = (
-					(len_bytes[7] << 56) ^ 
-					(len_bytes[6] << 48) ^ 
-					(len_bytes[5] << 40) ^ 
-					(len_bytes[4] << 32) ^ 
-					(len_bytes[3] << 24) ^ 
-					(len_bytes[2] << 16) ^ 
-					(len_bytes[1] << 8) ^ 
-					len_bytes[0]
+					(len_bytes[0] << 56) ^ 
+					(len_bytes[1] << 48) ^ 
+					(len_bytes[2] << 40) ^ 
+					(len_bytes[3] << 32) ^ 
+					(len_bytes[4] << 24) ^ 
+					(len_bytes[5] << 16) ^ 
+					(len_bytes[6] << 8) ^ 
+					len_bytes[7]
 				)
 			else:
 				payload_len = payload_len_0
