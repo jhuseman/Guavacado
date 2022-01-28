@@ -218,7 +218,8 @@ class WebSocketHandler(object):
 		elif first_opcode==0x0A: # pong
 			self.last_pong_time = time.time()
 			self.last_pong_data = msg.read_all()
-			self.ping_signal.notify_all()
+			with self.ping_signal:
+				self.ping_signal.notify_all()
 	
 	def _recv_bytes(self, num_bytes):
 		return self.web_request_handler.recv_bytes(num_bytes)
@@ -248,7 +249,8 @@ class WebSocketHandler(object):
 			ping_msg.write(ping_data)
 			ping_msg.end_message()
 			self.send_message(ping_msg, msg_type='ping')
-			self.ping_signal.wait_for(is_pong_stored, timeout=0.25)
+			with self.ping_signal:
+				self.ping_signal.wait_for(is_pong_stored, timeout=0.25)
 			if self.last_pong_data!=ping_data:
 				raise WebSocketPingDataException('The ping received different data than was sent!')
 			return self.last_pong_time - start_time
